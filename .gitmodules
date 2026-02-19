@@ -1,0 +1,3 @@
+[submodule "go-fdo"]
+	path = go-fdo
+	url = file:///var/bkgdata/go-fdo

@@ -1,0 +1,93 @@
+# FDO Voucher Manager Configuration
+
+debug: false
+
+# Server settings
+server:
+  addr: "localhost:8080"
+  ext_addr: ""
+  use_tls: false
+  insecure_tls: false
+
+# Database settings
+database:
+  path: "voucher_manager.db"
+  password: ""
+
+# Key management
+key_management:
+  key_type: "ec384"
+  first_time_init: true
+  import_key_file: ""
+
+# Voucher receiver (inbound push protocol)
+voucher_receiver:
+  enabled: true
+  endpoint: "/api/v1/vouchers"
+  global_token: ""
+  validate_ownership: false
+  require_auth: false
+
+# Voucher signing configuration
+voucher_signing:
+  mode: "internal"
+  external_command: ""
+  external_timeout: 30s
+
+# OVEExtra data configuration
+ove_extra_data:
+  enabled: false
+  external_command: ""
+  timeout: 10s
+
+# Owner signover configuration
+owner_signover:
+  mode: "static"
+  static_public_key: ""
+  static_did: ""
+  external_command: ""
+  timeout: 10s
+
+# Voucher file storage
+voucher_files:
+  directory: "data/vouchers"
+
+# Destination callback configuration
+destination_callback:
+  enabled: false
+  external_command: ""
+  timeout: 10s
+
+# DID cache configuration
+did_cache:
+  enabled: false
+  refresh_interval: 1h
+  max_age: 24h
+  failure_backoff: 1h
+  purge_unused: 168h
+  purge_on_startup: false
+
+# Push service configuration (outbound)
+push_service:
+  enabled: false
+  url: ""
+  auth_token: ""
+  mode: "fallback"
+  delete_after_success: false
+  retry_interval: 8h
+  max_attempts: 5
+
+# DID push configuration
+did_push:
+  enabled: true
+
+# Retry worker configuration
+retry_worker:
+  enabled: true
+  retry_interval: 8h
+  max_attempts: 5
+
+# Retention configuration
+retention:
+  keep_indefinitely: true
+  purge_after: 0s
