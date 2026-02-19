@@ -1,0 +1,65 @@
+server:
+  addr: localhost:8081
+  tls_enabled: false
+
+database:
+  path: /var/bkgdata/go-fdo-voucher-managment/tests/data/instance-b.db
+
+key_management:
+  key_type: secp256r1
+  initialize_on_startup: true
+
+voucher_receiver:
+  enabled: true
+  endpoint: /api/v1/vouchers
+  require_auth: false
+  validate_ownership: false
+
+voucher_signing:
+  mode: internal
+  external_command: ""
+  external_timeout: 10s
+
+owner_signover:
+  mode: static
+  static_public_key: ""
+  external_command: ""
+  timeout: 10s
+
+ove_extra_data:
+  enabled: false
+  external_command: ""
+  timeout: 10s
+
+push_service:
+  enabled: false
+  url: ""
+  auth_token: ""
+  mode: push
+  retry_interval: 5s
+  max_attempts: 3
+  delete_after_success: false
+
+destination_callback:
+  enabled: false
+  external_command: ""
+  timeout: 10s
+
+did_push:
+  enabled: false
+
+did_cache:
+  enabled: false
+  refresh_interval: 24h
+  max_age: 720h
+  failure_backoff: 1h
+  purge_unused: 168h
+  purge_on_startup: false
+
+retry_worker:
+  enabled: false
+  retry_interval: 5s
+  max_attempts: 3
+
+voucher_files:
+  directory: tests/data/vouchers-b

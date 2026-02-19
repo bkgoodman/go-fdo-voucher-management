@@ -1,0 +1,45 @@
+# Binaries and executables
+fdo-voucher-manager
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build artifacts
+*.o
+*.a
+*.out
+
+# Go build cache
+.cache/
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test artifacts and ephemeral files
+tests/data/
+tests/keys/
+tests/vouchers/
+tests/tests/
+
+# Log files
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Voucher files (generated during tests)
+*.fdoov
+*.pem
+
+# Temporary files
+*.tmp
+*.temp
