@@ -39,6 +39,8 @@ func main() {
 		runKeysCommand()
 	case "generate":
 		runGenerateCommand()
+	case "pullauth":
+		runPullAuthCommand()
 	case "help":
 		printUsage()
 	default:
@@ -55,6 +57,7 @@ Usage:
   fdo-voucher-manager server [options]
   fdo-voucher-manager vouchers [command] [options]
   fdo-voucher-manager tokens [command] [options]
+  fdo-voucher-manager pullauth [options]
   fdo-voucher-manager help
 
 Subcommands:
@@ -149,7 +152,12 @@ func runServer() {
 		config.OVEExtraData.Timeout,
 	)
 
-	didResolver := NewDIDResolver(nil, config.DIDCache.Enabled)
+	// Enable DID resolution if DID cache, DID push, or static DID signover is configured
+	didEnabled := config.DIDCache.Enabled || config.DIDPush.Enabled || config.OwnerSignover.StaticDID != ""
+	didResolver := NewDIDResolver(nil, didEnabled)
+	if !config.Server.UseTLS {
+		didResolver.InsecureHTTP = true
+	}
 
 	destinationResolver := NewVoucherDestinationResolver(
 		config,
@@ -170,6 +178,7 @@ func runServer() {
 		fileStore,
 		transmitStore,
 		pushService,
+		didResolver,
 	)
 
 	// Create receiver handler
@@ -186,6 +195,16 @@ func runServer() {
 	if config.VoucherReceiver.Enabled {
 		mux.Handle(config.VoucherReceiver.Endpoint, receiverHandler)
 		slog.Info("voucher receiver endpoint registered", "endpoint", config.VoucherReceiver.Endpoint)
+	}
+
+	// Setup pull service (PullAuth + Pull API)
+	if config.PullService.Enabled {
+		setupPullService(config, mux, signingService)
+	}
+
+	// Setup DID minting and serving
+	if config.DIDMinting.Enabled {
+		setupDIDMinting(config, mux, signingService)
 	}
 
 	server := &http.Server{

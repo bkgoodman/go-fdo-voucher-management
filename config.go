@@ -39,10 +39,10 @@ type Config struct {
 	// Voucher receiver configuration (inbound push)
 	VoucherReceiver struct {
 		Enabled           bool   `yaml:"enabled"`
-		Endpoint          string `yaml:"endpoint"`            // HTTP path, e.g., "/api/v1/vouchers"
-		GlobalToken       string `yaml:"global_token"`        // Optional bearer token
-		ValidateOwnership bool   `yaml:"validate_ownership"`  // Validate voucher is signed to our owner key
-		RequireAuth       bool   `yaml:"require_auth"`        // Require authentication
+		Endpoint          string `yaml:"endpoint"`           // HTTP path, e.g., "/api/v1/vouchers"
+		GlobalToken       string `yaml:"global_token"`       // Optional bearer token
+		ValidateOwnership bool   `yaml:"validate_ownership"` // Validate voucher is signed to our owner key
+		RequireAuth       bool   `yaml:"require_auth"`       // Require authentication
 	} `yaml:"voucher_receiver"`
 
 	// Voucher signing configuration
@@ -118,6 +118,25 @@ type Config struct {
 		KeepIndefinitely bool          `yaml:"keep_indefinitely"`
 		PurgeAfter       time.Duration `yaml:"purge_after"`
 	} `yaml:"retention"`
+
+	// Pull service configuration (inbound pull - serve vouchers to authenticated recipients)
+	PullService struct {
+		Enabled                bool          `yaml:"enabled"`
+		SessionTTL             time.Duration `yaml:"session_ttl"`
+		MaxSessions            int           `yaml:"max_sessions"`
+		TokenTTL               time.Duration `yaml:"token_ttl"`
+		RevealVoucherExistence bool          `yaml:"reveal_voucher_existence"`
+	} `yaml:"pull_service"`
+
+	// DID minting configuration
+	DIDMinting struct {
+		Enabled             bool   `yaml:"enabled"`
+		Host                string `yaml:"host"`                  // Hostname for did:web (e.g., "example.com:8080")
+		Path                string `yaml:"path"`                  // Optional sub-path for did:web
+		VoucherRecipientURL string `yaml:"voucher_recipient_url"` // URL for FDOVoucherRecipient service entry
+		ServeDIDDocument    bool   `yaml:"serve_did_document"`    // Serve .well-known/did.json
+		ExportDIDURI        bool   `yaml:"export_did_uri"`        // Log the did:web URI on startup
+	} `yaml:"did_minting"`
 }
 
 // DefaultConfig returns configuration with sensible defaults
@@ -261,6 +280,34 @@ func DefaultConfig() *Config {
 		}{
 			KeepIndefinitely: true,
 			PurgeAfter:       0,
+		},
+		PullService: struct {
+			Enabled                bool          `yaml:"enabled"`
+			SessionTTL             time.Duration `yaml:"session_ttl"`
+			MaxSessions            int           `yaml:"max_sessions"`
+			TokenTTL               time.Duration `yaml:"token_ttl"`
+			RevealVoucherExistence bool          `yaml:"reveal_voucher_existence"`
+		}{
+			Enabled:                false,
+			SessionTTL:             60 * time.Second,
+			MaxSessions:            1000,
+			TokenTTL:               1 * time.Hour,
+			RevealVoucherExistence: false,
+		},
+		DIDMinting: struct {
+			Enabled             bool   `yaml:"enabled"`
+			Host                string `yaml:"host"`
+			Path                string `yaml:"path"`
+			VoucherRecipientURL string `yaml:"voucher_recipient_url"`
+			ServeDIDDocument    bool   `yaml:"serve_did_document"`
+			ExportDIDURI        bool   `yaml:"export_did_uri"`
+		}{
+			Enabled:             false,
+			Host:                "",
+			Path:                "",
+			VoucherRecipientURL: "",
+			ServeDIDDocument:    true,
+			ExportDIDURI:        true,
 		},
 	}
 }

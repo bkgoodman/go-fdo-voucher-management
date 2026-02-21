@@ -1,0 +1,55 @@
+# "Second" instance: serves DID document, receives pushed vouchers from First
+debug: true
+
+server:
+  addr: localhost:8084
+  use_tls: false
+
+database:
+  path: tests/data/e2e-second.db
+
+key_management:
+  key_type: ec384
+  first_time_init: true
+
+voucher_receiver:
+  enabled: true
+  endpoint: /api/v1/vouchers
+  require_auth: false
+  validate_ownership: false
+
+voucher_signing:
+  mode: internal
+
+owner_signover:
+  mode: static
+  static_did: ""
+  static_public_key: ""
+
+voucher_files:
+  directory: tests/data/vouchers-e2e-second
+
+push_service:
+  enabled: false
+
+did_push:
+  enabled: false
+
+did_cache:
+  enabled: false
+
+pull_service:
+  enabled: false
+
+did_minting:
+  enabled: true
+  host: "localhost:8084"
+  voucher_recipient_url: "http://localhost:8084/api/v1/vouchers"
+  serve_did_document: true
+  export_did_uri: true
+
+retry_worker:
+  enabled: false
+
+retention:
+  keep_indefinitely: true

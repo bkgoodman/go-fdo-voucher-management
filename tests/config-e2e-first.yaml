@@ -1,0 +1,65 @@
+# "First" instance: receives vouchers, resolves Second's DID, signs over, pushes to Second
+debug: true
+
+server:
+  addr: localhost:8083
+  use_tls: false
+
+database:
+  path: tests/data/e2e-first.db
+
+key_management:
+  key_type: ec384
+  first_time_init: true
+
+voucher_receiver:
+  enabled: true
+  endpoint: /api/v1/vouchers
+  require_auth: false
+  validate_ownership: false
+
+voucher_signing:
+  mode: internal
+
+owner_signover:
+  mode: static
+  # static_did will be set dynamically by the test script (Second's DID URI)
+  static_did: ""
+  static_public_key: ""
+
+voucher_files:
+  directory: tests/data/vouchers-e2e-first
+
+push_service:
+  enabled: false
+  url: ""
+  mode: push
+  retry_interval: 2s
+  max_attempts: 3
+
+did_push:
+  enabled: true
+
+did_cache:
+  enabled: false
+
+pull_service:
+  enabled: true
+  session_ttl: 60s
+  max_sessions: 100
+  token_ttl: 1h
+
+did_minting:
+  enabled: true
+  host: "localhost:8083"
+  voucher_recipient_url: "http://localhost:8083/api/v1/vouchers"
+  serve_did_document: true
+  export_did_uri: true
+
+retry_worker:
+  enabled: true
+  retry_interval: 2s
+  max_attempts: 3
+
+retention:
+  keep_indefinitely: true

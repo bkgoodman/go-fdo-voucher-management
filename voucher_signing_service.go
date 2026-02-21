@@ -19,6 +19,10 @@ import (
 type VoucherSigningService struct {
 	mode     string
 	executor *ExternalCommandExecutor
+	// OwnerSigner is the current owner's private key, used to sign new
+	// voucher entries when extending ownership. If nil, voucher extension
+	// will fail when a nextOwner is specified.
+	OwnerSigner crypto.Signer
 }
 
 // NewVoucherSigningService creates a new voucher signing service
@@ -47,13 +51,17 @@ func (s *VoucherSigningService) signVoucherInternal(ctx context.Context, voucher
 	var extendedVoucher *fdo.Voucher
 	var err error
 
+	if s.OwnerSigner == nil {
+		return nil, fmt.Errorf("owner signer not configured; cannot extend voucher")
+	}
+
 	switch key := nextOwner.(type) {
 	case *ecdsa.PublicKey:
-		extendedVoucher, err = fdo.ExtendVoucher(voucher, nil, key, extraData)
+		extendedVoucher, err = fdo.ExtendVoucher(voucher, s.OwnerSigner, key, extraData)
 	case *rsa.PublicKey:
-		extendedVoucher, err = fdo.ExtendVoucher(voucher, nil, key, extraData)
+		extendedVoucher, err = fdo.ExtendVoucher(voucher, s.OwnerSigner, key, extraData)
 	case []*x509.Certificate:
-		extendedVoucher, err = fdo.ExtendVoucher(voucher, nil, key, extraData)
+		extendedVoucher, err = fdo.ExtendVoucher(voucher, s.OwnerSigner, key, extraData)
 	default:
 		return nil, fmt.Errorf("unsupported nextOwner key type: %T", nextOwner)
 	}

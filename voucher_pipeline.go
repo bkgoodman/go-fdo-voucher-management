@@ -14,14 +14,15 @@ import (
 
 // VoucherPipeline orchestrates the receive → sign-over → store → push workflow
 type VoucherPipeline struct {
-	config                *Config
-	signingService        *VoucherSigningService
-	ownerKeyService       *OwnerKeyService
-	oveExtraDataService   *OVEExtraDataService
-	destinationResolver   *VoucherDestinationResolver
-	fileStore             *VoucherFileStore
-	transmissionStore     *VoucherTransmissionStore
-	pushService           *VoucherPushService
+	config              *Config
+	signingService      *VoucherSigningService
+	ownerKeyService     *OwnerKeyService
+	oveExtraDataService *OVEExtraDataService
+	destinationResolver *VoucherDestinationResolver
+	fileStore           *VoucherFileStore
+	transmissionStore   *VoucherTransmissionStore
+	pushService         *VoucherPushService
+	didResolver         *DIDResolver
 }
 
 // NewVoucherPipeline creates a new pipeline
@@ -34,6 +35,7 @@ func NewVoucherPipeline(
 	fileStore *VoucherFileStore,
 	transmissionStore *VoucherTransmissionStore,
 	pushService *VoucherPushService,
+	didResolver *DIDResolver,
 ) *VoucherPipeline {
 	return &VoucherPipeline{
 		config:              config,
@@ -44,6 +46,7 @@ func NewVoucherPipeline(
 		fileStore:           fileStore,
 		transmissionStore:   transmissionStore,
 		pushService:         pushService,
+		didResolver:         didResolver,
 	}
 }
 
@@ -67,7 +70,17 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 	if p.config.OwnerSignover.Mode != "" {
 		switch p.config.OwnerSignover.Mode {
 		case "static":
-			if p.config.OwnerSignover.StaticPublicKey != "" {
+			if p.config.OwnerSignover.StaticDID != "" && p.didResolver != nil {
+				// Resolve DID to get public key and voucher recipient URL
+				key, recipientURL, err := p.didResolver.ResolveDIDKey(ctx, p.config.OwnerSignover.StaticDID)
+				if err != nil {
+					slog.Error("pipeline: failed to resolve static DID", "guid", guid, "did", p.config.OwnerSignover.StaticDID, "error", err)
+					return fmt.Errorf("failed to resolve static DID: %w", err)
+				}
+				nextOwner = key
+				didURL = recipientURL
+				slog.Info("pipeline: resolved static DID", "guid", guid, "did", p.config.OwnerSignover.StaticDID, "voucher_url", didURL)
+			} else if p.config.OwnerSignover.StaticPublicKey != "" {
 				key, err := LoadPublicKeyFromPEM([]byte(p.config.OwnerSignover.StaticPublicKey))
 				if err != nil {
 					slog.Error("pipeline: failed to parse static public key", "guid", guid, "error", err)
@@ -92,11 +105,11 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 	if p.config.VoucherSigning.Mode != "" && nextOwner != nil {
 		signedVoucher, err := p.signingService.SignVoucher(ctx, voucher, nextOwner, serial, model, extraData)
 		if err != nil {
-			slog.Error("pipeline: voucher signing failed", "guid", guid, "error", err)
-			return fmt.Errorf("voucher signing failed: %w", err)
+			slog.Warn("pipeline: voucher signing failed, forwarding original voucher", "guid", guid, "error", err)
+		} else {
+			voucher = signedVoucher
+			slog.Info("pipeline: voucher signed over to next owner", "guid", guid)
 		}
-		voucher = signedVoucher
-		slog.Info("pipeline: voucher signed", "guid", guid)
 	}
 
 	// Step 4: Resolve destination if push is configured
@@ -133,6 +146,13 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 		record.ID = id
 
 		slog.Info("pipeline: transmission queued", "guid", guid, "destination", dest.URL, "source", dest.Source)
+
+		// Attempt immediate push delivery
+		if p.pushService != nil {
+			if pushErr := p.pushService.AttemptRecord(ctx, record); pushErr != nil {
+				slog.Warn("pipeline: immediate push failed (will retry)", "guid", guid, "error", pushErr)
+			}
+		}
 	} else {
 		// No push configured, just store the transmission record with no destination
 		if err := p.storeTransmissionRecord(ctx, guid, filePath, serial, model, "", "", ""); err != nil {

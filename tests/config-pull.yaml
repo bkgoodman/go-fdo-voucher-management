@@ -1,0 +1,49 @@
+debug: true
+
+server:
+  addr: "localhost:8082"
+  ext_addr: ""
+  use_tls: false
+
+database:
+  path: "tests/data/pull-test.db"
+
+key_management:
+  key_type: "ec384"
+  first_time_init: true
+
+voucher_receiver:
+  enabled: true
+  endpoint: "/api/v1/vouchers"
+  validate_ownership: false
+  require_auth: false
+
+voucher_signing:
+  mode: "internal"
+
+voucher_files:
+  directory: "tests/data/vouchers-pull"
+
+pull_service:
+  enabled: true
+  session_ttl: 60s
+  max_sessions: 100
+  token_ttl: 1h
+  reveal_voucher_existence: false
+
+did_minting:
+  enabled: true
+  host: "localhost:8082"
+  path: ""
+  voucher_recipient_url: "http://localhost:8082/api/v1/vouchers"
+  serve_did_document: true
+  export_did_uri: true
+
+push_service:
+  enabled: false
+
+retry_worker:
+  enabled: false
+
+retention:
+  keep_indefinitely: true
