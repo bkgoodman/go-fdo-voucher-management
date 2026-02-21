@@ -16,19 +16,27 @@ SERVER_PID=$!
 echo "[INFO] Server PID: $SERVER_PID"
 
 # Wait for server to start
-sleep 2
+echo "[INFO] Waiting for server to start..."
+sleep 5
 
 # Test if server is responding
 echo "[INFO] Testing server endpoint..."
-if curl -s -f http://localhost:8081/api/v1/vouchers > /dev/null 2>&1; then
-    echo "[PASS] Server is responding"
-else
-    echo "[FAIL] Server is not responding"
-    echo "[INFO] Server logs:"
-    cat /tmp/server.log
-    kill $SERVER_PID 2>/dev/null || true
-    exit 1
-fi
+for i in {1..5}; do
+    if curl -s http://localhost:8081/api/v1/vouchers > /dev/null 2>&1; then
+        echo "[PASS] Server is responding"
+        break
+    else
+        echo "[INFO] Attempt $i: Server not ready yet, waiting..."
+        sleep 1
+        if [ $i -eq 5 ]; then
+            echo "[FAIL] Server is not responding after 5 attempts"
+            echo "[INFO] Server logs:"
+            cat /tmp/server.log
+            kill $SERVER_PID 2>/dev/null || true
+            exit 1
+        fi
+    fi
+done
 
 # Cleanup
 echo "[INFO] Stopping server..."
