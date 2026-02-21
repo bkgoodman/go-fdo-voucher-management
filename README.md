@@ -1,6 +1,22 @@
 # FDO Voucher Manager
 
-An intermediary voucher management service for FIDO Device Onboard (FDO) that receives ownership vouchers via the push protocol, stores them, signs them over to a new owner, and transmits them downstream.
+A voucher management service for FIDO Device Onboard (FDO) supply chains.
+
+## Overview
+
+In FDO, an **ownership voucher** is a cryptographic document created at a manufacturing station that binds a device to its owner. In the simplest case, a factory signs the voucher directly to an end customer's onboarding service and pushes it there. But real-world supply chains are rarely that simple.
+
+Devices often pass through multiple organizations before reaching their final operator. A factory may be one plant among many within a larger manufacturer. Devices may be built to stock, with no known customer at manufacturing time. OEMs sell through distributors and resellers. Large customers receive devices from multiple suppliers and operate onboarding services across many sites. At every step, vouchers must be received, stored, signed over to the next owner's key, and forwarded downstream.
+
+This project implements the **voucher service** role in that chain: a general-purpose intermediary that sits between voucher sources (factories, upstream suppliers) and voucher destinations (customers, downstream resellers, onboarding services). The same service can act as a factory aggregator collecting vouchers from multiple manufacturing stations, an OEM portal signing over to customer keys, a reseller forwarding to buyers, or a customer hub distributing across internal infrastructure.
+
+```text
+Factory ──▶ Voucher Service ──▶ Voucher Service ──▶ ... ──▶ Onboarding Service
+```
+
+The critical design principle is that **the APIs for sending and receiving vouchers are the same at every hop**. Whether a voucher service is talking to a factory, another reseller, or the final customer, the protocol is uniform. Voucher services may also be operated by third parties or offered as cloud SaaS products; the interfaces are the same regardless of who runs the infrastructure.
+
+For a detailed discussion of the supply chain scenarios, terminology (factory vs. manufacturer, build-to-stock vs. build-to-order), and architectural patterns that motivate this project, see **[VOUCHER_SUPPLY_CHAIN.md](VOUCHER_SUPPLY_CHAIN.md)**.
 
 ## Features
 

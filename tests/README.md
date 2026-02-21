@@ -1,6 +1,10 @@
 # FDO Voucher Manager - Test Suite
 
-This directory contains comprehensive shell-based tests for the FDO Voucher Manager, covering reception, signing, transmission, and dual-instance scenarios.
+This directory contains integration tests for the FDO Voucher Manager, exercising the voucher supply chain operations that the service performs: receiving vouchers from upstream sources, signing them over to new owners, and transmitting them downstream.
+
+The tests simulate real supply chain scenarios by running one or more service instances with different keys and configurations. For example, "Instance A" might represent a manufacturer's voucher service receiving from a factory, while "Instance B" represents a customer's service or a downstream reseller. When a voucher is pushed to Instance A, the test verifies that it is signed over to Instance B's owner key and forwarded automatically — the same flow that would occur between any two organizations in a real deployment.
+
+For background on the supply chain model and terminology, see [VOUCHER_SUPPLY_CHAIN.md](../VOUCHER_SUPPLY_CHAIN.md).
 
 ## Quick Start
 
@@ -27,13 +31,15 @@ Common utilities and helper functions used by all tests:
 
 ### Configuration Files
 
-**config-a.yaml**: Instance A configuration
+**config-a.yaml**: Instance A — simulates an upstream voucher service (e.g., a manufacturer or reseller)
+
 - Server on port 8080
 - Signing enabled (internal mode)
 - Push service enabled (transmits to Instance B)
 - Retry worker enabled
 
-**config-b.yaml**: Instance B configuration
+**config-b.yaml**: Instance B — simulates a downstream voucher service or customer (e.g., a buyer or onboarding service)
+
 - Server on port 8081
 - Signing enabled (internal mode)
 - Push service disabled (receiver only)
@@ -42,26 +48,30 @@ Common utilities and helper functions used by all tests:
 ## Test Categories
 
 ### Category 1: Basic Reception
-**Test 1.1: Receive Valid Voucher**
+
+Simulates a factory or upstream service pushing a voucher to this service.
+
+#### Test 1.1: Receive Valid Voucher
+
 - Starts a single server instance
-- Sends a test voucher via HTTP POST
+- Sends a test voucher via HTTP POST (as a factory would after device initialization)
 - Verifies HTTP 200 response
 - Verifies voucher stored to filesystem
 - Verifies transmission record created in database
 
-**Status**: Ready to run
-
 ### Category 5: Dual-Instance Transmission
-**Test 5.1: End-to-End Transmission (A → B)**
-- Starts two instances with different keys
-- Exports Instance B's owner key
+
+Simulates a two-hop supply chain: an upstream voucher service (Instance A) receives a voucher, signs it over to a downstream service's key (Instance B), and pushes it automatically. This is the core supply chain flow — the same pattern whether A is a manufacturer and B is a reseller, or A is a reseller and B is a customer.
+
+#### Test 5.1: End-to-End Transmission (A → B)
+
+- Starts two instances with different owner keys
+- Exports Instance B's owner key (simulating a customer sharing their key with a supplier)
 - Configures Instance A to sign over to Instance B's key
-- Sends voucher to Instance A
+- Sends voucher to Instance A (simulating a factory push)
 - Verifies Instance A signs and transmits to Instance B
 - Verifies Instance B receives and stores voucher
 - Verifies transmission records in both instances
-
-**Status**: Ready to run
 
 ## Test Data
 
