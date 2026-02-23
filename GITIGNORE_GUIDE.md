@@ -5,16 +5,19 @@ This document explains what files are tracked in git vs ignored, and why.
 ## Files to COMMIT (Permanent)
 
 ### Source Code
+
 - `*.go` - All Go source files
 - `go.mod`, `go.sum` - Go module dependencies
 - `go-fdo/` - Go-FDO submodule
 
 ### Configuration & Documentation
+
 - `config.yaml` - Example configuration
 - `README.md` - Project documentation
 - `.vscode/settings.json` - VS Code settings (optional, but useful for team consistency)
 
 ### Test Infrastructure (Permanent)
+
 - `tests/config-a.yaml` - Instance A test configuration
 - `tests/config-b.yaml` - Instance B test configuration
 - `tests/*.sh` - All test scripts (lib.sh, test-*.sh, run-all-tests.sh)
@@ -24,9 +27,11 @@ This document explains what files are tracked in git vs ignored, and why.
 ## Files to IGNORE (Ephemeral)
 
 ### Compiled Binaries
+
 - `fdo-voucher-manager` - Compiled executable (rebuild with `go build`)
 
 ### Test Runtime Artifacts
+
 - `tests/data/` - **All test runtime data**
   - `*.log` - Server logs
   - `*.db` - SQLite databases
@@ -48,18 +53,21 @@ This document explains what files are tracked in git vs ignored, and why.
   - `data/vouchers-b/` - Instance B voucher storage
 
 ### IDE & Editor Files
+
 - `.vscode/` (except settings.json)
 - `.idea/`
 - `*.swp`, `*.swo`, `*~`
 - `.DS_Store`
 
 ### Build Cache
+
 - `vendor/`
 - `.cache/`
 
 ## Quick Reference
 
 ### To Clean Up Test Artifacts
+
 ```bash
 # Remove all ephemeral test files
 rm -rf tests/data tests/keys tests/vouchers tests/tests
@@ -69,6 +77,7 @@ go build -o fdo-voucher-manager
 ```
 
 ### To Check What Git Will Track
+
 ```bash
 # See what git will commit
 git status
@@ -79,6 +88,7 @@ git check-ignore -v fdo-voucher-manager
 ```
 
 ### What to Commit After Development
+
 ```bash
 # Add all permanent files
 git add .gitignore README.md config.yaml *.go go.mod go.sum

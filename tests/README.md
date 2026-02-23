@@ -15,11 +15,27 @@ For background on the supply chain model and terminology, see [VOUCHER_SUPPLY_CH
 # Run a specific test
 ./test-1.1-receive-valid-voucher.sh
 ./test-5.1-end-to-end-transmission.sh
+./test-e2e-did-push-pull.sh
 ```
+
+## Learning Resources
+
+### 🎯 **New: Comprehensive E2E Tutorial**
+
+For a complete step-by-step walkthrough of the DID-based push and pull test, see:
+
+- **[TUTORIAL-E2E-DID-PUSH-PULL.md](TUTORIAL-E2E-DID-PULL.md)** - Learn how FDO vouchers flow through supply chains
+- **[diagrams/e2e-flow.md](diagrams/e2e-flow.md)** - Visual diagrams of the test flow
+- **[CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md)** - Deep dive into configuration options
+- **[LEARNING-EXERCISES.md](LEARNING-EXERCISES.md)** - Hands-on exercises to deepen understanding
+- **[LEARNING-PATH.md](LEARNING-PATH.md)** - Structured curriculum from beginner to expert
+
+These resources transform the technical test into an educational experience that explains both the "how" and "why" of FDO voucher operations in real supply chains.
 
 ## Test Infrastructure
 
 ### lib.sh
+
 Common utilities and helper functions used by all tests:
 
 - **Server Management**: `start_server()`, `stop_server()`
@@ -73,11 +89,40 @@ Simulates a two-hop supply chain: an upstream voucher service (Instance A) recei
 - Verifies Instance B receives and stores voucher
 - Verifies transmission records in both instances
 
+### Category 6: Advanced DID-Based Supply Chain
+
+#### Test 6.1: End-to-End DID Push + PullAuth
+
+**⭐ Featured Test**: See [TUTORIAL-E2E-DID-PUSH-PULL.md](TUTORIAL-E2E-DID-PUSH-PULL.md) for a comprehensive tutorial.
+
+This advanced test demonstrates modern FDO supply chain operations using DID-based discovery and cryptographic authentication:
+
+- **DID Document Discovery**: Both instances serve DID documents containing public keys and voucher endpoints
+- **Automatic DID Resolution**: Manufacturer automatically resolves customer's DID to discover keys and endpoints
+- **Cryptographic Sign-Over**: Vouchers are signed over to customer's public key automatically
+- **PushAuth Authentication**: Customer authenticates using PullAuth CBOR handshake for secure voucher retrieval
+- **Real Supply Chain Model**: Simulates Manufacturer → Customer voucher flow with proper organizational boundaries
+
+**Key Features**:
+
+- Two independent services with distinct cryptographic identities
+- DID-based automatic discovery (no manual endpoint configuration)
+- Both push (automatic) and pull (on-demand) transfer mechanisms
+- Cryptographic authentication using owner keys
+- Complete audit trail of voucher ownership chain
+
+**Learning Outcomes**:
+
+- Understand how DIDs replace manual key/endpoint exchange
+- Learn the difference between push and pull voucher transfer models
+- See how cryptographic authentication secures voucher retrieval
+- Experience a complete supply chain simulation
+
 ## Test Data
 
 Tests use the following directory structure:
 
-```
+```text
 tests/
 ├── data/                    # Runtime test data
 │   ├── instance-a.db       # Instance A database
@@ -95,12 +140,14 @@ tests/
 ## Running Tests
 
 ### Single Test
+
 ```bash
 ./test-1.1-receive-valid-voucher.sh
 ```
 
 Output:
-```
+
+```terminal
 [INFO] Test 1.1: Receive Valid Voucher
 [INFO] Starting test-server on port 8080...
 [PASS] test-server started (PID: 12345)
@@ -121,6 +168,7 @@ Failed: 0
 ```
 
 ### All Tests
+
 ```bash
 ./run-all-tests.sh
 ```
@@ -146,26 +194,34 @@ assert_http_status "200" "actual_code" "message"
 ## Troubleshooting
 
 ### Port Already in Use
+
 If tests fail with "Address already in use", kill existing processes:
+
 ```bash
 pkill -f "fdo-voucher-manager server"
 ```
 
 ### Database Locked
+
 If tests fail with "database is locked", ensure no other instances are running:
+
 ```bash
 rm -f tests/data/*.db
 ```
 
 ### Server Startup Timeout
+
 If server fails to start, check logs:
+
 ```bash
 cat tests/data/instance-a.log
 cat tests/data/instance-b.log
 ```
 
 ### Voucher Transmission Not Completing
+
 The retry worker has a 5-second interval. If transmission doesn't complete within the test timeout:
+
 1. Check server logs for errors
 2. Verify network connectivity between instances
 3. Increase timeout in test script if needed
@@ -175,6 +231,7 @@ The retry worker has a 5-second interval. If transmission doesn't complete withi
 ### Adding a New Test
 
 1. Create `test-X.Y-description.sh`:
+
 ```bash
 #!/bin/bash
 set -e
@@ -200,12 +257,14 @@ test_my_feature
 print_summary
 ```
 
-2. Make executable:
+1. Make executable:
+
 ```bash
 chmod +x test-X.Y-description.sh
 ```
 
-3. Add to `run-all-tests.sh`:
+1. Add to `run-all-tests.sh`:
+
 ```bash
 if bash "$SCRIPT_DIR/test-X.Y-description.sh"; then
     log_success "Test X.Y passed"
@@ -218,6 +277,7 @@ fi
 ### Adding Helper Functions
 
 Add new functions to `lib.sh`:
+
 ```bash
 my_helper_function() {
     local arg1="$1"
@@ -230,6 +290,7 @@ export -f my_helper_function
 ## Test Coverage
 
 ### Implemented
+
 - ✅ Basic voucher reception
 - ✅ Dual-instance transmission (A → B)
 - ✅ Server startup and shutdown
@@ -238,6 +299,7 @@ export -f my_helper_function
 - ✅ Filesystem storage verification
 
 ### Planned
+
 - ⏳ Authentication token validation
 - ⏳ Malformed voucher rejection
 - ⏳ Duplicate voucher detection
@@ -262,6 +324,7 @@ export -f my_helper_function
 ## Performance
 
 Typical test execution times:
+
 - Test 1.1 (basic reception): ~3-5 seconds
 - Test 5.1 (dual-instance): ~8-12 seconds
 - Full suite: ~15-20 seconds
@@ -269,22 +332,26 @@ Typical test execution times:
 ## Debugging
 
 Enable verbose output by modifying test scripts:
+
 ```bash
 set -x  # Print all commands
 ```
 
 Check server logs:
+
 ```bash
 tail -f tests/data/instance-a.log
 tail -f tests/data/instance-b.log
 ```
 
 Query database directly:
+
 ```bash
 sqlite3 tests/data/instance-a.db "SELECT * FROM voucher_transmissions;"
 ```
 
 List stored vouchers:
+
 ```bash
 ls -la tests/data/vouchers-a/
 ls -la tests/data/vouchers-b/

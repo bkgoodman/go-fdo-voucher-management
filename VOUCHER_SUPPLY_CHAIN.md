@@ -51,10 +51,10 @@ When devices are **built to order**, the manufacturer knows the customer at manu
 Many devices pass through one or more intermediaries before reaching the end user. An OEM might sell to a distributor, who sells to a regional reseller, who sells to the end customer. Each intermediary in the chain may need to receive vouchers, sign them over to the next party, and forward them:
 
 ```text
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+┌──────────────┐     ┌──────────────┐      ┌──────────────┐     ┌──────────────┐
 │  Factory     │────▶│  OEM Voucher │────▶│  Reseller    │────▶│  Customer    │
-│  (mfg stn)  │     │  Service     │     │  Voucher Svc │     │  Onboarding  │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+│  (mfg stn)   │     │  Service     │      │  Voucher Svc │     │  Onboarding  │
+└──────────────┘     └──────────────┘      └──────────────┘     └──────────────┘
 ```
 
 At each hop, the same fundamental operations occur:
@@ -110,7 +110,7 @@ And the critical design insight is that **the code and APIs for sending and rece
 The **FDO Voucher Manager** implements the "Voucher Service" box in the diagrams above. It is a general-purpose intermediary that can play any role in the supply chain:
 
 | Role | Configuration |
-|------|---------------|
+| ------ | --------------- |
 | **Factory aggregator** | Receives vouchers from one or more manufacturing stations, forwards to OEM headquarters |
 | **OEM voucher portal** | Receives from factories, signs over to customer keys, pushes or serves for pull |
 | **Reseller service** | Receives from upstream supplier, signs over and forwards to downstream buyer |
@@ -135,7 +135,7 @@ This project depends on the [go-fdo](go-fdo/) library, which implements the core
 ## Summary
 
 | Concept | Description |
-|---------|-------------|
+| --------- | ------------- |
 | **Factory** | A physical plant with a manufacturing station that initializes devices and creates vouchers |
 | **Manufacturer** | An organization (possibly with multiple factories) that sells devices |
 | **Voucher Service** | An intermediary that receives, stores, signs over, and transmits vouchers |
