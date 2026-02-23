@@ -50,8 +50,10 @@ func NewVoucherPipeline(
 	}
 }
 
-// ProcessVoucher processes a received voucher through the pipeline
-func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Voucher, serial, model, guid, filePath string) error {
+// ProcessVoucher processes a received voucher through the pipeline.
+// ownerKeyFingerprint is the SHA-256 hex fingerprint of the voucher's current
+// owner public key, used to scope Pull API access.
+func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Voucher, serial, model, guid, filePath, ownerKeyFingerprint string) error {
 	slog.Info("pipeline: processing voucher", "guid", guid, "serial", serial, "model", model)
 
 	// Step 1: Get OVEExtra data if configured
@@ -101,6 +103,17 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 		}
 	}
 
+	// If we resolved a next owner key, compute its fingerprint for Pull API scoping.
+	// Uses the same DER-based SHA-256 as PullAuth's fingerprintKey(), ensuring the
+	// DB fingerprint matches what the pull client authenticates with.
+	if nextOwner != nil {
+		ownerKeyFingerprint = FingerprintPublicKeyHex(nextOwner)
+		slog.Info("pipeline: computed destination owner key fingerprint",
+			"guid", guid,
+			"owner_key_fingerprint", ownerKeyFingerprint,
+		)
+	}
+
 	// Step 3: Sign voucher if configured
 	if p.config.VoucherSigning.Mode != "" && nextOwner != nil {
 		signedVoucher, err := p.signingService.SignVoucher(ctx, voucher, nextOwner, serial, model, extraData)
@@ -118,7 +131,7 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 		if err != nil {
 			slog.Warn("pipeline: failed to resolve destination", "guid", guid, "error", err)
 			// Store with no destination - will be handled later
-			if err := p.storeTransmissionRecord(ctx, guid, filePath, serial, model, "", "", ""); err != nil {
+			if err := p.storeTransmissionRecord(ctx, guid, filePath, serial, model, "", "", "", ownerKeyFingerprint); err != nil {
 				slog.Error("pipeline: failed to store transmission record", "guid", guid, "error", err)
 			}
 			return nil
@@ -126,16 +139,17 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 
 		// Create transmission record with destination
 		record := &VoucherTransmissionRecord{
-			VoucherGUID:       guid,
-			FilePath:          filePath,
-			DestinationURL:    dest.URL,
-			AuthToken:         dest.Token,
-			DestinationSource: dest.Source,
-			Mode:              dest.Mode,
-			Status:            transmissionStatusPending,
-			SerialNumber:      serial,
-			ModelNumber:       model,
-			Attempts:          0,
+			VoucherGUID:         guid,
+			FilePath:            filePath,
+			DestinationURL:      dest.URL,
+			AuthToken:           dest.Token,
+			DestinationSource:   dest.Source,
+			Mode:                dest.Mode,
+			Status:              transmissionStatusPending,
+			SerialNumber:        serial,
+			ModelNumber:         model,
+			OwnerKeyFingerprint: ownerKeyFingerprint,
+			Attempts:            0,
 		}
 
 		id, err := p.transmissionStore.CreatePending(ctx, record)
@@ -155,7 +169,7 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 		}
 	} else {
 		// No push configured, just store the transmission record with no destination
-		if err := p.storeTransmissionRecord(ctx, guid, filePath, serial, model, "", "", ""); err != nil {
+		if err := p.storeTransmissionRecord(ctx, guid, filePath, serial, model, "", "", "", ownerKeyFingerprint); err != nil {
 			slog.Error("pipeline: failed to store transmission record", "guid", guid, "error", err)
 		}
 	}
@@ -164,17 +178,18 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 }
 
 // storeTransmissionRecord stores a transmission record with no destination
-func (p *VoucherPipeline) storeTransmissionRecord(ctx context.Context, guid, filePath, serial, model, url, token, source string) error {
+func (p *VoucherPipeline) storeTransmissionRecord(ctx context.Context, guid, filePath, serial, model, url, token, source, ownerKeyFingerprint string) error {
 	record := &VoucherTransmissionRecord{
-		VoucherGUID:       guid,
-		FilePath:          filePath,
-		DestinationURL:    url,
-		AuthToken:         token,
-		DestinationSource: source,
-		Status:            transmissionStatusPending,
-		SerialNumber:      serial,
-		ModelNumber:       model,
-		Attempts:          0,
+		VoucherGUID:         guid,
+		FilePath:            filePath,
+		DestinationURL:      url,
+		AuthToken:           token,
+		DestinationSource:   source,
+		Status:              transmissionStatusPending,
+		SerialNumber:        serial,
+		ModelNumber:         model,
+		OwnerKeyFingerprint: ownerKeyFingerprint,
+		Attempts:            0,
 	}
 
 	_, err := p.transmissionStore.CreatePending(ctx, record)

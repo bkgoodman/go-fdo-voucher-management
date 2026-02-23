@@ -284,7 +284,89 @@ You should see JSON output containing:
 - Bandwidth-constrained environments
 - Security scenarios where the customer controls the timing
 
-### Step 8: Verify Independent Identities
+### Step 8: Pull Vouchers (Auth + List + Download)
+
+The `pull` subcommand combines authentication, listing, and downloading into a single operation. It uses **Type-5 (PullAuth) challenge-response authentication** — the customer proves possession of its DID-minted owner key, and the manufacturer only returns vouchers that were signed over to that specific key.
+
+**Configuration context:**
+
+- **Customer config** (`tests/config-e2e-second.yaml`): The `did_minting.key_export_path` setting exports the DID-minted private key to a PEM file so the `pull` command can use it
+- **Manufacturer config** (`tests/config-e2e-first.yaml`): The `pull_service.enabled: true` setting activates the Pull API endpoints
+- **Owner key**: The customer's DID-minted key (exported to `tests/data/e2e-second-owner-key.pem`) — this is the same key that the manufacturer signed vouchers over TO when it resolved the customer's DID
+
+**List vouchers using the customer's actual owner key:**
+
+```bash
+# Use the customer's DID-minted owner key (not an ephemeral key!)
+# The manufacturer will only return vouchers whose owner_key_fingerprint
+# matches this key's SHA-256 fingerprint.
+./fdo-voucher-manager pull \
+    -url http://localhost:8083 \
+    -key tests/data/e2e-second-owner-key.pem \
+    -list \
+    -json
+```
+
+This outputs a JSON object with `voucher_count`, a `vouchers` array (each with GUID, serial, model, created timestamp), and a `continuation` token if there are more pages. **Only vouchers signed over to this owner key are returned.**
+
+**Download vouchers to a directory:**
+
+```bash
+mkdir -p tests/data/pulled-vouchers
+
+./fdo-voucher-manager pull \
+    -url http://localhost:8083 \
+    -key tests/data/e2e-second-owner-key.pem \
+    -output tests/data/pulled-vouchers
+```
+
+Each voucher is saved as a `.fdoov` file named by its GUID.
+
+**Pull only vouchers created after a specific time (incremental sync):**
+
+```bash
+./fdo-voucher-manager pull \
+    -url http://localhost:8083 \
+    -key tests/data/e2e-second-owner-key.pem \
+    -since "2026-01-01T00:00:00Z" \
+    -list
+```
+
+**Resume a previous pull using a continuation token:**
+
+```bash
+./fdo-voucher-manager pull \
+    -url http://localhost:8083 \
+    -key tests/data/e2e-second-owner-key.pem \
+    -continuation "opaque-token-from-previous-response" \
+    -list
+```
+
+**Limit page size:**
+
+```bash
+./fdo-voucher-manager pull \
+    -url http://localhost:8083 \
+    -key tests/data/e2e-second-owner-key.pem \
+    -limit 10 \
+    -list
+```
+
+**How owner-key scoping works:**
+
+1. When a voucher is pushed to the manufacturer, the manufacturer extracts the voucher's current `OwnerPublicKey()` and stores its SHA-256 fingerprint in the `owner_key_fingerprint` column of the `voucher_transmissions` database table
+2. When a customer authenticates via PullAuth, the manufacturer verifies the customer's signature and issues a session token bound to the customer's key fingerprint
+3. When the customer lists or downloads vouchers, the manufacturer filters by `owner_key_fingerprint` — only returning vouchers that belong to this specific owner
+
+**Why it matters**: The pull model supports several real-world scenarios:
+
+- **Incremental sync**: Use `-since` to pull only new vouchers since your last sync
+- **Disaster recovery**: Pull all vouchers from the beginning to rebuild state
+- **Bandwidth management**: Use `-limit` and `-continuation` to page through large datasets
+- **Audit**: Use `-list` to inspect available vouchers before downloading
+- **Multi-tenant security**: Each owner only sees vouchers signed over to their key
+
+### Step 9: Verify Independent Identities
 
 Confirm that each instance has its own distinct cryptographic identity:
 
@@ -308,6 +390,40 @@ fi
 
 **Why it matters**: Each organization must maintain its own cryptographic identity. This prevents confusion and ensures proper ownership chains.
 
+### Step 10: Verify Owner-Scoped Pull Isolation
+
+This step proves that the Pull API enforces owner-key scoping. Two different keys authenticate to the same manufacturer — only the key that vouchers were signed over to can see them.
+
+**Pull with the customer's owner key (should see vouchers):**
+
+```bash
+./fdo-voucher-manager pull \
+    -url http://localhost:8083 \
+    -key tests/data/e2e-second-owner-key.pem \
+    -list \
+    -json
+# Expected: voucher_count > 0
+```
+
+**Pull with an unrelated ephemeral key (should see zero vouchers):**
+
+```bash
+./fdo-voucher-manager pull \
+    -url http://localhost:8083 \
+    -key-type ec384 \
+    -list \
+    -json
+# Expected: voucher_count = 0
+```
+
+The unrelated key can authenticate (PullAuth succeeds for any valid key), but the Pull API returns zero vouchers because no vouchers in the database have an `owner_key_fingerprint` matching this key.
+
+**Why it matters**: This is the multi-tenant security guarantee. In a real deployment, a manufacturer may hold vouchers for many different customers. Each customer can only list and download vouchers that were explicitly signed over to their owner key. This prevents:
+
+- Customer A seeing Customer B's vouchers
+- Unauthorized parties enumerating the voucher inventory
+- Accidental cross-contamination of device ownership
+
 ## Cleanup
 
 When you're done, stop both background processes and remove temporary files:
@@ -327,8 +443,9 @@ kill -9 $CUSTOMER_PID 2>/dev/null
 # Remove runtime data
 rm -f tests/data/e2e-first.db tests/data/e2e-first.db-shm tests/data/e2e-first.db-wal
 rm -f tests/data/e2e-second.db tests/data/e2e-second.db-shm tests/data/e2e-second.db-wal
-rm -rf tests/data/vouchers-e2e-first tests/data/vouchers-e2e-second
+rm -rf tests/data/vouchers-e2e-first tests/data/vouchers-e2e-second tests/data/pulled-vouchers
 rm -f tests/data/test-voucher-e2e.pem
+rm -f tests/data/e2e-first-owner-key.pem tests/data/e2e-second-owner-key.pem
 rm -f tests/config-e2e-first-live.yaml
 rm -f tests/data/first.log tests/data/second.log
 ```
@@ -354,7 +471,8 @@ pkill -f fdo-voucher-manager
 | Generate voucher | Factory manufactures device | Create device ownership record |
 | Push to Manufacturer | Factory sends voucher to manufacturer | Aggregate vouchers from multiple factories |
 | DID-based push | Manufacturer forwards to customer | Automatic delivery to customer |
-| PullAuth | Customer pulls additional vouchers | On-demand voucher retrieval |
+| PullAuth | Customer authenticates to manufacturer | Prove ownership key for voucher retrieval |
+| Pull Vouchers | Customer lists and downloads vouchers | On-demand voucher retrieval with filtering |
 
 ## When to Use Push vs Pull
 
@@ -371,19 +489,28 @@ pkill -f fdo-voucher-manager
 - Factory → Manufacturer (immediate aggregation)
 - Manufacturer → Customer (just-in-time delivery)
 
-### Pull Model (PullAuth)
+### Pull Model (PullAuth + Pull)
 
 **Use when**:
 
 - Customer controls timing
 - Bandwidth/constraints matter
 - Customer wants to batch operations
+- Incremental sync is needed (pull only new vouchers since last check)
+
+**Key features**:
+
+- **`-since`**: Pull only vouchers created after a given timestamp (ISO 8601). Use this for incremental sync — record the timestamp of your last pull and pass it next time
+- **`-continuation`**: Resume a previous paginated pull. The server returns a continuation token when there are more pages; pass it back to get the next page
+- **`-limit`**: Control page size for bandwidth management
+- **`-until`**: Pull vouchers created before a given timestamp (useful for auditing a time range)
 
 **Real-world examples**:
 
-- Customer pulling from multiple suppliers
+- Customer pulling from multiple suppliers on a schedule
 - Large enterprises with complex inventory management
-- Situations requiring audit trails before retrieval
+- Disaster recovery: pull all vouchers from the beginning to rebuild state
+- Nightly batch sync using `-since` with the previous sync timestamp
 
 ## Troubleshooting Guide
 

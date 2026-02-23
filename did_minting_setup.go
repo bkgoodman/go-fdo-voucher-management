@@ -4,8 +4,12 @@
 package main
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/fido-device-onboard/go-fdo/did"
 )
@@ -71,6 +75,16 @@ func setupDIDMinting(config *Config, mux *http.ServeMux, signingService *Voucher
 		}
 	}
 
+	// Export the private key to a PEM file if configured.
+	// This allows the `pull` command to authenticate using the same owner key.
+	if config.DIDMinting.KeyExportPath != "" {
+		if err := exportPrivateKey(result.PrivateKey, config.DIDMinting.KeyExportPath); err != nil {
+			slog.Error("DID minting: failed to export private key", "path", config.DIDMinting.KeyExportPath, "error", err)
+		} else {
+			slog.Info("DID minting: private key exported", "path", config.DIDMinting.KeyExportPath)
+		}
+	}
+
 	// Serve the DID Document
 	if config.DIDMinting.ServeDIDDocument {
 		handler, err := did.NewHandler(result.DIDDocument)
@@ -95,4 +109,23 @@ func setupDIDMinting(config *Config, mux *http.ServeMux, signingService *Voucher
 		"did_uri", result.DIDURI,
 		"serving", config.DIDMinting.ServeDIDDocument,
 	)
+}
+
+// exportPrivateKey saves a crypto.Signer's private key to a PEM file.
+func exportPrivateKey(signer interface{}, path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	derBytes, err := x509.MarshalPKCS8PrivateKey(signer)
+	if err != nil {
+		return err
+	}
+
+	pemBlock := &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: derBytes,
+	}
+
+	return os.WriteFile(path, pem.EncodeToMemory(pemBlock), 0o600)
 }

@@ -8,7 +8,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -20,7 +19,7 @@ import (
 )
 
 // setupPullService configures and registers the PullAuth and Pull API handlers.
-func setupPullService(config *Config, mux *http.ServeMux, signingService *VoucherSigningService) {
+func setupPullService(config *Config, mux *http.ServeMux, signingService *VoucherSigningService, fileStore *VoucherFileStore, transmitStore *VoucherTransmissionStore) {
 	// Generate an ephemeral Holder key for signing PullAuth challenges.
 	// This key is only used for the challenge-response handshake, not for
 	// voucher signing. It is regenerated on each server start.
@@ -58,10 +57,15 @@ func setupPullService(config *Config, mux *http.ServeMux, signingService *Vouche
 		"token_ttl", tokenTTL,
 	)
 
-	// Note: Pull API list/download handlers (HTTPPullHolder) require a VoucherStore
-	// implementation. This will be wired when the full VoucherStore adapter is
-	// implemented for the voucher-manager's file-based storage.
-	slog.Info("pull service: ready (PullAuth only; list/download requires VoucherStore adapter)")
+	// Wire the Pull API list/download handlers using the file-based voucher store
+	pullStore := NewPullVoucherStore(fileStore, transmitStore)
+	pullHolder := &transfer.HTTPPullHolder{
+		Store:           pullStore,
+		ValidateToken:   tokenStore.validate,
+		DefaultPageSize: 50,
+	}
+	pullHolder.RegisterHandlers(mux)
+	slog.Info("pull service: Pull API list/download endpoints registered")
 }
 
 // pullTokenStore manages session tokens issued after successful PullAuth.
@@ -133,8 +137,5 @@ func (s *pullTokenStore) validate(token string) ([]byte, error) {
 }
 
 func fingerprintKey(pub crypto.PublicKey) []byte {
-	// Simple fingerprint: SHA-256 of the public key's string representation
-	h := sha256.New()
-	fmt.Fprintf(h, "%v", pub)
-	return h.Sum(nil)
+	return FingerprintPublicKey(pub)
 }

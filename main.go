@@ -41,6 +41,8 @@ func main() {
 		runGenerateCommand()
 	case "pullauth":
 		runPullAuthCommand()
+	case "pull":
+		runPullCommand()
 	case "help":
 		printUsage()
 	default:
@@ -58,12 +60,15 @@ Usage:
   fdo-voucher-manager vouchers [command] [options]
   fdo-voucher-manager tokens [command] [options]
   fdo-voucher-manager pullauth [options]
+  fdo-voucher-manager pull [options]
   fdo-voucher-manager help
 
 Subcommands:
   server              Start the HTTP server for receiving vouchers
   vouchers            Manage vouchers (list, show, retry)
   tokens              Manage receiver authentication tokens
+  pullauth            Perform PullAuth handshake only (authentication test)
+  pull                Authenticate, list, and download vouchers from a Holder
   help                Show this help message
 
 Options for 'server':
@@ -91,6 +96,18 @@ Options for 'tokens list':
 
 Options for 'tokens delete':
   -token string      Token to delete (required)
+
+Options for 'pull':
+  -url string        Holder base URL (required)
+  -key string        PEM-encoded private key file
+  -key-type string   Key type if generating ephemeral key (ec256, ec384, rsa2048)
+  -since string      Return vouchers created after this time (RFC 3339)
+  -until string      Return vouchers created before this time (RFC 3339)
+  -continuation string  Continuation token from a previous pull
+  -limit int         Max vouchers per page (0 = server default)
+  -output string     Directory to save downloaded voucher files
+  -list              List vouchers only (do not download)
+  -json              Output as JSON
 `)
 }
 
@@ -199,7 +216,7 @@ func runServer() {
 
 	// Setup pull service (PullAuth + Pull API)
 	if config.PullService.Enabled {
-		setupPullService(config, mux, signingService)
+		setupPullService(config, mux, signingService, fileStore, transmitStore)
 	}
 
 	// Setup DID minting and serving

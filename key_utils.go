@@ -8,7 +8,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -16,6 +18,28 @@ import (
 	"github.com/fido-device-onboard/go-fdo/cbor"
 	"github.com/fido-device-onboard/go-fdo/protocol"
 )
+
+// FingerprintPublicKey computes a deterministic SHA-256 fingerprint of a public
+// key by DER-encoding it first. Returns raw bytes. This is the canonical
+// fingerprinting method used for owner-key scoping in the Pull API.
+func FingerprintPublicKey(pub crypto.PublicKey) []byte {
+	der, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return nil
+	}
+	h := sha256.Sum256(der)
+	return h[:]
+}
+
+// FingerprintPublicKeyHex returns the hex-encoded SHA-256 fingerprint of a
+// public key's DER encoding.
+func FingerprintPublicKeyHex(pub crypto.PublicKey) string {
+	fp := FingerprintPublicKey(pub)
+	if fp == nil {
+		return ""
+	}
+	return hex.EncodeToString(fp)
+}
 
 // protocolPublicKeyToCrypto converts a protocol.PublicKey to crypto.PublicKey
 func protocolPublicKeyToCrypto(protocolPubKey *protocol.PublicKey) (crypto.PublicKey, error) {

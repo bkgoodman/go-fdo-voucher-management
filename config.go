@@ -136,6 +136,7 @@ type Config struct {
 		VoucherRecipientURL string `yaml:"voucher_recipient_url"` // URL for FDOVoucherRecipient service entry
 		ServeDIDDocument    bool   `yaml:"serve_did_document"`    // Serve .well-known/did.json
 		ExportDIDURI        bool   `yaml:"export_did_uri"`        // Log the did:web URI on startup
+		KeyExportPath       string `yaml:"key_export_path"`       // Save DID-minted private key to PEM file (for pull command)
 	} `yaml:"did_minting"`
 }
 
@@ -301,6 +302,7 @@ func DefaultConfig() *Config {
 			VoucherRecipientURL string `yaml:"voucher_recipient_url"`
 			ServeDIDDocument    bool   `yaml:"serve_did_document"`
 			ExportDIDURI        bool   `yaml:"export_did_uri"`
+			KeyExportPath       string `yaml:"key_export_path"`
 		}{
 			Enabled:             false,
 			Host:                "",
@@ -308,6 +310,7 @@ func DefaultConfig() *Config {
 			VoucherRecipientURL: "",
 			ServeDIDDocument:    true,
 			ExportDIDURI:        true,
+			KeyExportPath:       "",
 		},
 	}
 }

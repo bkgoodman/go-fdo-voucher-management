@@ -47,6 +47,7 @@ did_minting:
   voucher_recipient_url: "http://localhost:8084/api/v1/vouchers"
   serve_did_document: true
   export_did_uri: true
+  key_export_path: tests/data/e2e-second-owner-key.pem
 
 retry_worker:
   enabled: false

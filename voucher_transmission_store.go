@@ -21,23 +21,24 @@ const (
 
 // VoucherTransmissionRecord represents a single voucher delivery attempt/destination
 type VoucherTransmissionRecord struct {
-	ID                int64
-	VoucherGUID       string
-	FilePath          string
-	DestinationURL    string
-	AuthToken         string
-	DestinationSource string
-	Mode              string
-	Status            string
-	Attempts          int
-	LastError         string
-	SerialNumber      string
-	ModelNumber       string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	LastAttemptAt     sql.NullTime
-	DeliveredAt       sql.NullTime
-	RetryAfter        sql.NullTime
+	ID                  int64
+	VoucherGUID         string
+	FilePath            string
+	DestinationURL      string
+	AuthToken           string
+	DestinationSource   string
+	Mode                string
+	Status              string
+	Attempts            int
+	LastError           string
+	SerialNumber        string
+	ModelNumber         string
+	OwnerKeyFingerprint string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	LastAttemptAt       sql.NullTime
+	DeliveredAt         sql.NullTime
+	RetryAfter          sql.NullTime
 }
 
 // VoucherTransmissionStore handles persistence of voucher push attempts
@@ -56,32 +57,44 @@ func (s *VoucherTransmissionStore) Init(ctx context.Context) error {
 		return errors.New("transmission store not initialized")
 	}
 
-	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS voucher_transmissions (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			voucher_guid TEXT NOT NULL,
-			file_path TEXT NOT NULL,
-			destination_url TEXT,
-			auth_token TEXT,
-			destination_source TEXT,
-			mode TEXT,
-			status TEXT NOT NULL DEFAULT 'pending',
-			attempts INTEGER NOT NULL DEFAULT 0,
-			last_error TEXT,
-			serial_number TEXT,
-			model_number TEXT,
-			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			last_attempt_at TIMESTAMP,
-			delivered_at TIMESTAMP,
-			retry_after TIMESTAMP
-		)`,
+	// Create table (includes owner_key_fingerprint for new installs)
+	createTable := `CREATE TABLE IF NOT EXISTS voucher_transmissions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		voucher_guid TEXT NOT NULL,
+		file_path TEXT NOT NULL,
+		destination_url TEXT,
+		auth_token TEXT,
+		destination_source TEXT,
+		mode TEXT,
+		status TEXT NOT NULL DEFAULT 'pending',
+		attempts INTEGER NOT NULL DEFAULT 0,
+		last_error TEXT,
+		serial_number TEXT,
+		model_number TEXT,
+		owner_key_fingerprint TEXT NOT NULL DEFAULT '',
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		last_attempt_at TIMESTAMP,
+		delivered_at TIMESTAMP,
+		retry_after TIMESTAMP
+	)`
+	if _, err := s.db.ExecContext(ctx, createTable); err != nil {
+		return fmt.Errorf("failed to initialize voucher_transmissions schema: %w", err)
+	}
+
+	// Migration: add owner_key_fingerprint column to existing tables that lack it.
+	// Must run BEFORE creating the index on this column.
+	_, _ = s.db.ExecContext(ctx, `ALTER TABLE voucher_transmissions ADD COLUMN owner_key_fingerprint TEXT NOT NULL DEFAULT ''`)
+
+	// Create indexes (safe to run after migration)
+	indexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_voucher_transmissions_status_retry ON voucher_transmissions(status, retry_after)`,
 		`CREATE INDEX IF NOT EXISTS idx_voucher_transmissions_guid ON voucher_transmissions(voucher_guid)`,
 		`CREATE INDEX IF NOT EXISTS idx_voucher_transmissions_destination ON voucher_transmissions(destination_url, status)`,
+		`CREATE INDEX IF NOT EXISTS idx_voucher_transmissions_owner_key ON voucher_transmissions(owner_key_fingerprint)`,
 	}
 
-	for _, stmt := range stmts {
+	for _, stmt := range indexes {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("failed to initialize voucher_transmissions schema: %w", err)
 		}
@@ -118,10 +131,11 @@ func (s *VoucherTransmissionStore) CreatePending(ctx context.Context, record *Vo
 			last_error,
 			serial_number,
 			model_number,
+			owner_key_fingerprint,
 			created_at,
 			updated_at,
 			retry_after
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		record.VoucherGUID,
 		record.FilePath,
 		record.DestinationURL,
@@ -133,6 +147,7 @@ func (s *VoucherTransmissionStore) CreatePending(ctx context.Context, record *Vo
 		record.LastError,
 		record.SerialNumber,
 		record.ModelNumber,
+		record.OwnerKeyFingerprint,
 		record.CreatedAt.UTC(),
 		record.UpdatedAt.UTC(),
 		nullTimeValue(record.RetryAfter),
@@ -178,7 +193,7 @@ func (s *VoucherTransmissionStore) MarkAttempt(ctx context.Context, id int64, st
 func (s *VoucherTransmissionStore) PendingForRetry(ctx context.Context, limit int) ([]VoucherTransmissionRecord, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, voucher_guid, file_path, destination_url, auth_token, destination_source, mode, status, attempts, last_error,
-			serial_number, model_number,
+			serial_number, model_number, owner_key_fingerprint,
 			created_at, updated_at, last_attempt_at, delivered_at, retry_after
 			FROM voucher_transmissions
 			WHERE status = ? AND (retry_after IS NULL OR retry_after <= ?)
@@ -207,6 +222,7 @@ func (s *VoucherTransmissionStore) PendingForRetry(ctx context.Context, limit in
 			&rec.LastError,
 			&rec.SerialNumber,
 			&rec.ModelNumber,
+			&rec.OwnerKeyFingerprint,
 			&rec.CreatedAt,
 			&rec.UpdatedAt,
 			&rec.LastAttemptAt,
@@ -227,7 +243,7 @@ func (s *VoucherTransmissionStore) ListTransmissions(ctx context.Context, status
 		limit = 50
 	}
 	query := `SELECT id, voucher_guid, file_path, destination_url, auth_token, destination_source, mode, status, attempts, last_error,
-		serial_number, model_number,
+		serial_number, model_number, owner_key_fingerprint,
 		created_at, updated_at, last_attempt_at, delivered_at, retry_after
 		FROM voucher_transmissions`
 	var conditions []string
@@ -268,6 +284,7 @@ func (s *VoucherTransmissionStore) ListTransmissions(ctx context.Context, status
 			&rec.LastError,
 			&rec.SerialNumber,
 			&rec.ModelNumber,
+			&rec.OwnerKeyFingerprint,
 			&rec.CreatedAt,
 			&rec.UpdatedAt,
 			&rec.LastAttemptAt,
@@ -288,7 +305,7 @@ func (s *VoucherTransmissionStore) FetchLatestByGUID(ctx context.Context, guid s
 		return nil, fmt.Errorf("guid cannot be empty")
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT id, voucher_guid, file_path, destination_url, auth_token, destination_source, mode, status, attempts, last_error,
-		serial_number, model_number,
+		serial_number, model_number, owner_key_fingerprint,
 		created_at, updated_at, last_attempt_at, delivered_at, retry_after
 		FROM voucher_transmissions WHERE voucher_guid = ? ORDER BY created_at DESC LIMIT 1`, guid)
 	if err != nil {
@@ -311,6 +328,7 @@ func (s *VoucherTransmissionStore) FetchLatestByGUID(ctx context.Context, guid s
 			&rec.LastError,
 			&rec.SerialNumber,
 			&rec.ModelNumber,
+			&rec.OwnerKeyFingerprint,
 			&rec.CreatedAt,
 			&rec.UpdatedAt,
 			&rec.LastAttemptAt,
@@ -331,7 +349,7 @@ func (s *VoucherTransmissionStore) FetchByID(ctx context.Context, id int64) (*Vo
 		return nil, fmt.Errorf("invalid transmission id %d", id)
 	}
 	row := s.db.QueryRowContext(ctx, `SELECT id, voucher_guid, file_path, destination_url, auth_token, destination_source, mode, status, attempts, last_error,
-		serial_number, model_number,
+		serial_number, model_number, owner_key_fingerprint,
 		created_at, updated_at, last_attempt_at, delivered_at, retry_after
 		FROM voucher_transmissions WHERE id = ?`, id)
 	var rec VoucherTransmissionRecord
@@ -348,6 +366,7 @@ func (s *VoucherTransmissionStore) FetchByID(ctx context.Context, id int64) (*Vo
 		&rec.LastError,
 		&rec.SerialNumber,
 		&rec.ModelNumber,
+		&rec.OwnerKeyFingerprint,
 		&rec.CreatedAt,
 		&rec.UpdatedAt,
 		&rec.LastAttemptAt,
@@ -357,6 +376,57 @@ func (s *VoucherTransmissionStore) FetchByID(ctx context.Context, id int64) (*Vo
 		return nil, err
 	}
 	return &rec, nil
+}
+
+// ListByOwner returns transmissions for a specific owner key fingerprint.
+func (s *VoucherTransmissionStore) ListByOwner(ctx context.Context, ownerKeyFingerprint string, limit int) ([]VoucherTransmissionRecord, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, voucher_guid, file_path, destination_url, auth_token, destination_source, mode, status, attempts, last_error,
+			serial_number, model_number, owner_key_fingerprint,
+			created_at, updated_at, last_attempt_at, delivered_at, retry_after
+			FROM voucher_transmissions
+			WHERE owner_key_fingerprint = ?
+			ORDER BY created_at DESC
+			LIMIT ?`,
+		ownerKeyFingerprint, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query transmissions by owner: %w", err)
+	}
+	defer rows.Close()
+
+	var records []VoucherTransmissionRecord
+	for rows.Next() {
+		var rec VoucherTransmissionRecord
+		if err := rows.Scan(
+			&rec.ID,
+			&rec.VoucherGUID,
+			&rec.FilePath,
+			&rec.DestinationURL,
+			&rec.AuthToken,
+			&rec.DestinationSource,
+			&rec.Mode,
+			&rec.Status,
+			&rec.Attempts,
+			&rec.LastError,
+			&rec.SerialNumber,
+			&rec.ModelNumber,
+			&rec.OwnerKeyFingerprint,
+			&rec.CreatedAt,
+			&rec.UpdatedAt,
+			&rec.LastAttemptAt,
+			&rec.DeliveredAt,
+			&rec.RetryAfter,
+		); err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+
+	return records, rows.Err()
 }
 
 // DeleteByID removes a transmission record

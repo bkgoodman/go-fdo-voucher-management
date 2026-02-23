@@ -115,16 +115,19 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	model := r.FormValue("model")
 	manufacturer := r.FormValue("manufacturer")
 
+	// Extract the current owner public key fingerprint from the voucher.
+	// This identifies which owner the voucher is signed over to, and is used
+	// to scope Pull API access so owners can only list/download their own vouchers.
+	ownerKeyFP := extractOwnerKeyFingerprint(voucher)
+
 	slog.Info("voucher receiver: received voucher",
 		"guid", guidStr,
 		"serial", serial,
 		"model", model,
 		"manufacturer", manufacturer,
+		"owner_key_fingerprint", ownerKeyFP,
 		"source_ip", sourceIP,
 		"size", header.Size)
-
-	// TODO: Implement ownership validation if needed
-	_ = ctx
 
 	voucherPath := h.fileStore.FilePathForGUID(guidStr)
 	if _, err := os.Stat(voucherPath); err == nil {
@@ -151,7 +154,7 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// Trigger the pipeline asynchronously to sign-over and push
 	if h.pipeline != nil {
 		go func() {
-			if err := h.pipeline.ProcessVoucher(context.Background(), voucher, serial, model, guidStr, voucherPath); err != nil {
+			if err := h.pipeline.ProcessVoucher(context.Background(), voucher, serial, model, guidStr, voucherPath, ownerKeyFP); err != nil {
 				slog.Error("voucher receiver: pipeline processing failed", "guid", guidStr, "error", err)
 			}
 		}()
@@ -297,6 +300,18 @@ func (h *VoucherReceiverHandler) sendSuccess(w http.ResponseWriter, voucherID, m
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		slog.Error("failed to encode success response", "error", err)
 	}
+}
+
+// extractOwnerKeyFingerprint extracts the current owner's public key from the
+// voucher and returns its SHA-256 fingerprint as a hex string. This fingerprint
+// is used to scope Pull API access: only the authenticated owner can list/download
+// vouchers signed over to their key.
+func extractOwnerKeyFingerprint(voucher *fdo.Voucher) string {
+	ownerKey, err := voucher.OwnerPublicKey()
+	if err != nil || ownerKey == nil {
+		return ""
+	}
+	return FingerprintPublicKeyHex(ownerKey)
 }
 
 // sendError sends an error JSON response
