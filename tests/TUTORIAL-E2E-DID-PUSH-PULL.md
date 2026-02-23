@@ -1,6 +1,19 @@
 # End-to-End FDO Voucher Supply Chain Tutorial
 
-This tutorial walks you through the `test-e2e-did-push-pull.sh` script, demonstrating how FDO vouchers flow through a realistic supply chain. You'll learn not just **what** happens, but **why** it matters in real-world manufacturing and distribution scenarios.
+This tutorial walks you through running two `fdo-voucher-manager` instances that simulate a manufacturer-to-customer voucher supply chain. You'll execute real commands, observe DID-based discovery, voucher sign-over, push delivery, and PullAuth authentication.
+
+## Prerequisites
+
+- The `fdo-voucher-manager` binary built and available at the project root
+- `curl`, `python3`, and `sed` available on your system
+- Ports 8083 and 8084 free on localhost
+
+To build the binary (if you haven't already):
+
+```bash
+cd /path/to/go-fdo-voucher-managment
+go build -o fdo-voucher-manager
+```
 
 ## Learning Objectives
 
@@ -18,17 +31,16 @@ Imagine this supply chain:
 
 ```text
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Factory       │    │   Manufacturer │    │   Customer      │
-│   (Shanghai)    │───▶│   Voucher Svc  │───▶│   Onboarding    │
+│   Factory       │    │   Manufacturer  │    │   Customer      │
+│   (Shanghai)    │───▶│   Voucher Svc   │───▶│   Onboarding    │
 │                 │    │   (Global)      │    │   Service       │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-Our test simulates the **Manufacturer → Customer** portion:
+We'll simulate the **Manufacturer → Customer** portion using two local instances:
 
-- **"First" instance** = Manufacturer's voucher service
-- **"Second" instance** = Customer's voucher service  
-- **Test voucher** = Device manufactured at the factory
+- **Manufacturer** = `fdo-voucher-manager` on port **8083** (config: `config-e2e-first.yaml`)
+- **Customer** = `fdo-voucher-manager` on port **8084** (config: `config-e2e-second.yaml`)
 
 ## Key Concepts Explained
 
@@ -57,14 +69,14 @@ A DID (Decentralized Identifier) document is like a digital business card that c
     "type": "JsonWebKey",
     "publicKeyJwk": {
       "kty": "EC",
-      "crv": "P-384", 
+      "crv": "P-384",
       "x": "...",
       "y": "..."
     }
   }],
   "service": [{
     "id": "#voucher-recipient",
-    "type": "FDOVoucherRecipient", 
+    "type": "FDOVoucherRecipient",
     "serviceEndpoint": "https://manufacturer.com/api/v1/vouchers"
   }]
 }
@@ -86,42 +98,63 @@ Original Voucher (Factory → Manufacturer)
 
 **Why it matters**: This creates an unbroken chain of custody from factory to end customer, proving legitimate ownership at each step.
 
-## Step-by-Step Tutorial
+## Setup
 
-Let's walk through the test script step by step.
-
-### Step 1: Start the Customer Service ("Second")
+All commands below assume you are in the project root directory:
 
 ```bash
-# The script starts Second instance on port 8084
-SECOND_PID=$(start_server "$SCRIPT_DIR/config-e2e-second.yaml" "$PORT_SECOND" "second")
+cd /path/to/go-fdo-voucher-managment
 ```
 
-**What happens**:
-
-- Creates a new EC/P-384 key pair for the customer
-- Starts a web server on port 8084
-- Serves a DID document at `/.well-known/did.json`
-
-**Why it matters**:
-This represents the customer setting up their voucher service to receive devices from suppliers.
-
-**Try it yourself**:
+Create the data directories both instances will use for voucher storage:
 
 ```bash
-# After the test starts, you can view the DID document:
+mkdir -p tests/data/vouchers-e2e-first
+mkdir -p tests/data/vouchers-e2e-second
+```
+
+## Step-by-Step Tutorial
+
+### Step 1: Start the Customer Service
+
+The customer needs to be running first so the manufacturer can discover its DID document later.
+
+Under the hood, `fdo-voucher-manager server` generates a new EC/P-384 owner key pair (because `first_time_init: true` in the config), starts an HTTP server, and serves a DID document at `/.well-known/did.json`.
+
+Start the customer instance in the background:
+
+```bash
+./fdo-voucher-manager server -config tests/config-e2e-second.yaml \
+    > tests/data/second.log 2>&1 &
+CUSTOMER_PID=$!
+echo "Customer started (PID: $CUSTOMER_PID)"
+```
+
+Wait a moment for it to initialize, then verify it's running:
+
+```bash
 curl -s http://localhost:8084/.well-known/did.json | python3 -m json.tool
 ```
 
-### Step 2: Discover Customer's Information
+You should see a JSON document containing the customer's public key and voucher recipient endpoint.
+
+**Why it matters**: This represents the customer setting up their voucher service to receive devices from suppliers.
+
+### Step 2: Discover the Customer's DID Information
+
+In a real supply chain, the manufacturer discovers the customer's identity by fetching their DID document. Let's do that now:
 
 ```bash
-# Fetch Second's DID document
-response=$(curl -s -w "\n%{http_code}" "http://localhost:$PORT_SECOND/.well-known/did.json")
+# Fetch the customer's DID document
+CUSTOMER_DID_DOC=$(curl -s http://localhost:8084/.well-known/did.json)
 
-# Extract DID URI and voucher endpoint
-SECOND_DID_URI=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-SECOND_VOUCHER_URL=$(echo "$body" | python3 -c "
+# Extract the DID URI (e.g., "did:web:localhost:8084")
+CUSTOMER_DID_URI=$(echo "$CUSTOMER_DID_DOC" | \
+    python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+echo "Customer DID URI: $CUSTOMER_DID_URI"
+
+# Extract the voucher recipient endpoint
+CUSTOMER_VOUCHER_URL=$(echo "$CUSTOMER_DID_DOC" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 for svc in d.get('service', []):
@@ -129,161 +162,197 @@ for svc in d.get('service', []):
         print(svc.get('serviceEndpoint', ''))
         break
 ")
+echo "Customer voucher endpoint: $CUSTOMER_VOUCHER_URL"
 ```
 
-**What happens**:
+**What you'll see**: The DID URI identifies the customer's service, and the voucher endpoint is where vouchers should be sent. The DID document also contains the customer's public key, which the manufacturer will use for sign-over.
 
-- Retrieves the customer's DID document
-- Extracts their DID URI (like `did:web:localhost:8084`)
-- Extracts their voucher recipient endpoint
+**Why it matters**: In production, this same DID resolution happens automatically — the manufacturer just needs the customer's DID URI and can discover everything else.
 
-**Why it matters**:
-In a real supply chain, the manufacturer would discover the customer's information the same way, without manual configuration.
+### Step 3: Configure the Manufacturer with the Customer's DID
 
-### Step 3: Configure Manufacturer for Customer
+The manufacturer's config template (`config-e2e-first.yaml`) has an empty `static_did` field. We fill it in with the customer's DID URI so the manufacturer knows who to sign vouchers over to:
 
 ```bash
-# Inject customer's DID into manufacturer's config
-sed "s|static_did: \"\"|static_did: \"$SECOND_DID_URI\"|" \
-    "$SCRIPT_DIR/config-e2e-first.yaml" > "$SCRIPT_DIR/config-e2e-first-live.yaml"
+sed "s|static_did: \"\"|static_did: \"$CUSTOMER_DID_URI\"|" \
+    tests/config-e2e-first.yaml > tests/config-e2e-first-live.yaml
 ```
 
-**What happens**:
-
-- Creates a modified configuration for the manufacturer
-- Sets `static_did` to the customer's DID URI
-- This tells the manufacturer: "When you receive vouchers, sign them over to this DID"
-
-**Why it matters**:
-This is how a manufacturer configures their system to automatically transfer vouchers to a specific customer.
-
-### Step 4: Start Manufacturer Service ("First")
+Verify the config was updated:
 
 ```bash
-FIRST_PID=$(start_server "$SCRIPT_DIR/config-e2e-first-live.yaml" "$PORT_FIRST" "first")
+grep "static_did:" tests/config-e2e-first-live.yaml
 ```
 
-**What happens**:
+You should see the customer's DID URI in the output.
 
-- Creates manufacturer's own key pair (different from customer's)
-- Starts web server on port 8083
-- Configured to automatically sign over vouchers to customer's DID
+**Why it matters**: This is how a manufacturer configures their system to automatically transfer vouchers to a specific customer. In production, this might be set via an admin UI or API rather than `sed`.
 
-**Why it matters**:
-The manufacturer is now ready to receive devices from factories and forward them to the customer.
+### Step 4: Start the Manufacturer Service
 
-### Step 5: Simulate Factory Device Manufacturing
+Now start the manufacturer instance using the config that knows about the customer:
 
 ```bash
-# Generate a test voucher (simulates factory creating voucher for new device)
-"$PROJECT_ROOT/fdo-voucher-manager" generate voucher \
+./fdo-voucher-manager server -config tests/config-e2e-first-live.yaml \
+    > tests/data/first.log 2>&1 &
+MANUFACTURER_PID=$!
+echo "Manufacturer started (PID: $MANUFACTURER_PID)"
+```
+
+Wait a moment, then verify:
+
+```bash
+curl -s http://localhost:8083/.well-known/did.json | python3 -m json.tool
+```
+
+The manufacturer now has its own, separate DID document with a different key pair.
+
+**Why it matters**: The manufacturer is now ready to receive vouchers from factories and automatically forward them to the customer.
+
+### Step 5: Simulate a Factory Sending a Voucher
+
+A factory manufactures a device and creates a voucher for it. Then it pushes the voucher to the manufacturer's service:
+
+```bash
+# Generate a test voucher (simulates factory creating a voucher for a new device)
+./fdo-voucher-manager generate voucher \
     -serial "E2E-DID-SERIAL-001" \
     -model "E2E-DID-MODEL-001" \
-    -output "$test_voucher"
+    -output tests/data/test-voucher-e2e.pem
 
-# Send to manufacturer (factory pushes to manufacturer's voucher service)
-send_voucher "$test_voucher" "http://localhost:$PORT_FIRST/api/v1/vouchers" \
-    "" "E2E-DID-SERIAL-001" "E2E-DID-MODEL-001"
+# Push the voucher to the manufacturer's receiver endpoint (simulates factory → manufacturer)
+curl -s -X POST http://localhost:8083/api/v1/vouchers \
+    -F "voucher=@tests/data/test-voucher-e2e.pem" \
+    -F "serial=E2E-DID-SERIAL-001" \
+    -F "model=E2E-DID-MODEL-001"
 ```
 
-**What happens**:
+You should get an HTTP 200 response with a JSON body containing a `voucher_id`.
 
-- Creates a voucher for a hypothetical device
-- Factory pushes this voucher to the manufacturer's service
-- Manufacturer receives and stores the voucher
+**Why it matters**: This simulates the real flow where factories push vouchers to the manufacturer's centralized service.
 
-**Why it matters**:
-This simulates the real flow where factories push vouchers to the manufacturer's centralized service.
+### Step 6: Watch the Automatic DID-Based Push
 
-### Step 6: Automatic DID-Based Sign-Over and Push
+Once the manufacturer receives the voucher, it automatically:
+
+1. Resolves the customer's DID URI to fetch their public key and endpoint
+2. Signs the voucher over to the customer's key
+3. Pushes the signed voucher to the customer's endpoint
+
+This happens in the background. Wait a few seconds, then check if the customer received it:
 
 ```bash
-# Wait for manufacturer to resolve customer's DID and push voucher
-while [ $waited -lt $max_wait ]; do
-    stored_voucher=$(find "$TEST_DATA_DIR/vouchers-e2e-second" -type f 2>/dev/null | head -1)
-    if [ -n "$stored_voucher" ]; then
-        push_succeeded=true
-        break
-    fi
-    sleep 1
-    ((waited++))
-done
+# Wait briefly for the async push to complete
+sleep 5
+
+# Check if the customer received a voucher file
+ls -la tests/data/vouchers-e2e-second/
 ```
 
-**What happens behind the scenes**:
-
-1. Manufacturer receives voucher from factory
-2. Resolves customer's DID URI to get their public key and endpoint
-3. Signs the voucher over to customer's key
-4. Pushes the signed voucher to customer's endpoint
-5. Customer receives and stores the voucher
-
-**Why it matters**:
-This demonstrates the core supply chain operation: automatic, secure transfer of device ownership between organizations.
-
-**Verify the log**:
+If you see a file, the push succeeded. You can also inspect the manufacturer's log to see the DID resolution and push:
 
 ```bash
-# Check manufacturer's log for DID resolution
+# Check for DID resolution
 grep "resolved static DID" tests/data/first.log
 
-# Check for push to customer's endpoint  
+# Check for push to customer's endpoint
 grep "localhost:8084" tests/data/first.log
 ```
 
-### Step 7: PullAuth Authentication (Alternative Transfer)
+**Why it matters**: This is the core supply chain operation — automatic, secure transfer of device ownership between organizations, driven entirely by DID discovery.
+
+### Step 7: Try PullAuth Authentication (Alternative Transfer)
+
+Push is one way to transfer vouchers. PullAuth lets the *customer* initiate retrieval instead. The customer authenticates to the manufacturer using a cryptographic handshake:
 
 ```bash
-# Customer authenticates to manufacturer using PullAuth
-pullauth_output=$("$PROJECT_ROOT/fdo-voucher-manager" pullauth \
-    -url "http://localhost:$PORT_FIRST" \
+./fdo-voucher-manager pullauth \
+    -url http://localhost:8083 \
     -key-type ec384 \
-    -json)
+    -json
 ```
 
-**What happens**:
+You should see JSON output containing:
 
-- Customer initiates cryptographic authentication to manufacturer
-- Uses their owner key to prove identity
-- Manufacturer verifies and returns a session token
-- Customer can now pull vouchers on demand
+- `status`: `"authenticated"`
+- `session_token`: a token the customer can use to pull vouchers
+- `owner_key_fingerprint`: identifies which key was used
 
-**Why it matters**:
-PullAuth gives customers control over when they retrieve vouchers, rather than waiting for push. This is useful for:
+**Why it matters**: PullAuth gives customers control over when they retrieve vouchers, rather than waiting for push. This is useful for:
 
 - Just-in-time inventory management
-- Bandwidth-constrained environments  
-- Security scenarios where customer controls the timing
+- Bandwidth-constrained environments
+- Security scenarios where the customer controls the timing
 
 ### Step 8: Verify Independent Identities
 
+Confirm that each instance has its own distinct cryptographic identity:
+
 ```bash
-# Confirm both instances have different keys and DIDs
-first_did=$(curl -s "http://localhost:$PORT_FIRST/.well-known/did.json" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-second_did=$(curl -s "http://localhost:$PORT_SECOND/.well-known/did.json" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+# Fetch both DID URIs
+MANUFACTURER_DID=$(curl -s http://localhost:8083/.well-known/did.json | \
+    python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+CUSTOMER_DID=$(curl -s http://localhost:8084/.well-known/did.json | \
+    python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+
+echo "Manufacturer DID: $MANUFACTURER_DID"
+echo "Customer DID:     $CUSTOMER_DID"
+
+# They should be different
+if [ "$MANUFACTURER_DID" != "$CUSTOMER_DID" ]; then
+    echo "PASS: Distinct identities confirmed"
+else
+    echo "FAIL: DIDs should be different"
+fi
 ```
 
-**What happens**:
+**Why it matters**: Each organization must maintain its own cryptographic identity. This prevents confusion and ensures proper ownership chains.
 
-- Verifies manufacturer and customer have different DID URIs
-- Confirms they have different public keys
-- Ensures proper separation of identities
+## Cleanup
 
-**Why it matters**:
-Each organization must maintain its own cryptographic identity. This prevents confusion and ensures proper ownership chains.
+When you're done, stop both background processes and remove temporary files:
+
+```bash
+# Stop the servers
+kill $MANUFACTURER_PID 2>/dev/null
+kill $CUSTOMER_PID 2>/dev/null
+
+# Wait a moment for graceful shutdown
+sleep 1
+
+# Force-kill if still running
+kill -9 $MANUFACTURER_PID 2>/dev/null
+kill -9 $CUSTOMER_PID 2>/dev/null
+
+# Remove runtime data
+rm -f tests/data/e2e-first.db tests/data/e2e-first.db-shm tests/data/e2e-first.db-wal
+rm -f tests/data/e2e-second.db tests/data/e2e-second.db-shm tests/data/e2e-second.db-wal
+rm -rf tests/data/vouchers-e2e-first tests/data/vouchers-e2e-second
+rm -f tests/data/test-voucher-e2e.pem
+rm -f tests/config-e2e-first-live.yaml
+rm -f tests/data/first.log tests/data/second.log
+```
+
+If you lost track of the PIDs (e.g., you closed your terminal), find and kill straggling processes:
+
+```bash
+# Find any running fdo-voucher-manager processes
+ps aux | grep fdo-voucher-manager | grep -v grep
+
+# Kill them by PID, or kill all instances:
+pkill -f fdo-voucher-manager
+```
 
 ## Supply Chain Process Mapping
 
-Let's map our test to real supply chain operations:
-
-| Test Step | Real-World Equivalent | Business Purpose |
+| Tutorial Step | Real-World Equivalent | Business Purpose |
 | ----------- | ---------------------- | ------------------ |
-| Start "Second" | Customer sets up voucher service | Prepare to receive devices from suppliers |
-| Discover DID | Customer shares DID with manufacturer | Enable automatic voucher delivery |
-| Configure "First" | Manufacturer adds customer to system | Set up automatic forwarding |
-| Start "First" | Manufacturer runs voucher service | Centralized voucher management |
+| Start Customer | Customer sets up voucher service | Prepare to receive devices from suppliers |
+| Discover DID | Manufacturer fetches customer's DID | Enable automatic voucher delivery |
+| Configure Manufacturer | Manufacturer adds customer to system | Set up automatic forwarding |
+| Start Manufacturer | Manufacturer runs voucher service | Centralized voucher management |
 | Generate voucher | Factory manufactures device | Create device ownership record |
-| Push to "First" | Factory sends voucher to manufacturer | Aggregate vouchers from multiple factories |
+| Push to Manufacturer | Factory sends voucher to manufacturer | Aggregate vouchers from multiple factories |
 | DID-based push | Manufacturer forwards to customer | Automatic delivery to customer |
 | PullAuth | Customer pulls additional vouchers | On-demand voucher retrieval |
 
@@ -324,9 +393,9 @@ Let's map our test to real supply chain operations:
 
 - **What it means**: Manufacturer can't reach customer's DID document
 - **What it teaches**: Network connectivity and DNS resolution in supply chains
-- **Fix**: Check network connectivity, DNS configuration
+- **Fix**: Check that the customer instance is running: `curl -s http://localhost:8084/.well-known/did.json`
 
-#### "Voucher sign-over failed"  
+#### "Voucher sign-over failed"
 
 - **What it means**: Cryptographic signing operation failed
 - **What it teaches**: Key management and certificate validation
@@ -336,7 +405,12 @@ Let's map our test to real supply chain operations:
 
 - **What it means**: Customer's endpoint not reachable
 - **What it teaches**: Service availability and error handling
-- **Fix**: Check customer service status, retry logic
+- **Fix**: Check customer service status, verify the endpoint in the DID document matches
+
+#### Port already in use
+
+- **What it means**: A previous run left a process behind
+- **Fix**: `pkill -f fdo-voucher-manager` and try again
 
 ### Debug Commands
 
@@ -345,17 +419,24 @@ Let's map our test to real supply chain operations:
 curl -s http://localhost:8083/.well-known/did.json | python3 -m json.tool
 curl -s http://localhost:8084/.well-known/did.json | python3 -m json.tool
 
-# Check service logs
+# Watch service logs in real time
 tail -f tests/data/first.log
 tail -f tests/data/second.log
 
 # Verify voucher storage
 ls -la tests/data/vouchers-e2e-first/
 ls -la tests/data/vouchers-e2e-second/
-
-# Test DID resolution manually
-"$PROJECT_ROOT/fdo-voucher-manager" did resolve -did "did:web:localhost:8084"
 ```
+
+## Running the Automated Test
+
+If you'd rather run the entire flow as an automated test instead of step-by-step:
+
+```bash
+./tests/test-e2e-did-push-pull.sh
+```
+
+This script performs all the steps above plus assertions and cleanup. See [TEST_PLAN.md](TEST_PLAN.md) for details on the full test suite.
 
 ## Extension Exercises
 
@@ -363,26 +444,26 @@ Try these modifications to deepen your understanding:
 
 ### Exercise 1: Change the Supply Chain Direction
 
-- Modify the script so "Second" pushes to "First" instead
+- Swap which instance has `did_push: enabled` and which has it disabled
 - What configuration changes are needed?
 - How does this model a different business relationship?
 
 ### Exercise 2: Add a Middleman
 
-- Add a third instance representing a distributor
+- Add a third instance on port 8085 representing a distributor
 - Create a Factory → Distributor → Customer chain
 - What additional DID resolutions are needed?
 
 ### Exercise 3: Disable DID Resolution
 
-- Configure static endpoints instead of DID-based discovery
+- Set `did_push: false` and use `push_service` with a hardcoded URL instead
 - Compare the operational complexity
 - When would this be preferable?
 
 ### Exercise 4: Simulate Failure Scenarios
 
-- Take down the customer service during push
-- Observe retry behavior
+- Stop the customer service before the manufacturer pushes
+- Observe retry behavior in `tests/data/first.log`
 - How does the system handle partial failures?
 
 ## Summary
@@ -393,13 +474,11 @@ This tutorial demonstrated:
 2. **Automatic Discovery**: DID-based resolution eliminates manual configuration
 3. **Secure Transfer**: Cryptographic sign-over maintains chain of custody
 4. **Flexible Delivery**: Both push and pull models supported
-5. **Real-World Mapping**: Test operations mirror actual supply chain processes
-
-The `test-e2e-did-push-pull.sh` script is more than a test—it's a complete reference implementation of how FDO vouchers flow through modern supply chains. By understanding each step, you're equipped to design and deploy voucher services for any organization in the FDO ecosystem.
+5. **Real-World Mapping**: Tutorial operations mirror actual supply chain processes
 
 ## Next Steps
 
 - Read [VOUCHER_SUPPLY_CHAIN.md](../VOUCHER_SUPPLY_CHAIN.md) for broader context
-- Explore other test scripts to see different scenarios
-- Try the extension exercises to customize for your use case
-- Review the configuration files to understand deployment options
+- Explore the [CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md) to understand all config options
+- Try the [LEARNING-EXERCISES.md](LEARNING-EXERCISES.md) for more advanced scenarios
+- Follow the [LEARNING-PATH.md](LEARNING-PATH.md) for a structured curriculum
