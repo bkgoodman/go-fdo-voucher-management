@@ -97,10 +97,22 @@ Options for 'tokens list':
 Options for 'tokens delete':
   -token string      Token to delete (required)
 
+Options for 'pullauth':
+  -url string        Holder base URL (required)
+  -key string        Owner private key PEM file (for non-delegate pull)
+  -key-type string   Key type if generating ephemeral key (ec256, ec384, rsa2048)
+  -owner-pub string  Owner public key PEM file (for delegate-based pull)
+  -delegate-key string    Delegate private key PEM file
+  -delegate-chain string  Delegate certificate chain PEM file
+  -json              Output as JSON
+
 Options for 'pull':
   -url string        Holder base URL (required)
-  -key string        PEM-encoded private key file
+  -key string        Owner private key PEM file (for non-delegate pull)
   -key-type string   Key type if generating ephemeral key (ec256, ec384, rsa2048)
+  -owner-pub string  Owner public key PEM file (for delegate-based pull)
+  -delegate-key string    Delegate private key PEM file
+  -delegate-chain string  Delegate certificate chain PEM file
   -since string      Return vouchers created after this time (RFC 3339)
   -until string      Return vouchers created before this time (RFC 3339)
   -continuation string  Continuation token from a previous pull

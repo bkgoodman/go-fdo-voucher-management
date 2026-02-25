@@ -22,8 +22,11 @@ import (
 func runPullCommand() {
 	fs := flag.NewFlagSet("pull", flag.ExitOnError)
 	holderURL := fs.String("url", "", "Holder base URL (e.g., http://localhost:8083)")
-	keyFile := fs.String("key", "", "PEM-encoded private key file for authentication")
+	keyFile := fs.String("key", "", "PEM-encoded owner private key file (for non-delegate pull)")
 	keyType := fs.String("key-type", "ec384", "Key type to generate if -key not provided (ec256, ec384, rsa2048)")
+	ownerPubFile := fs.String("owner-pub", "", "PEM-encoded owner public key file (for delegate-based pull)")
+	delegateKeyFile := fs.String("delegate-key", "", "PEM-encoded delegate private key file")
+	delegateChainFile := fs.String("delegate-chain", "", "PEM-encoded delegate certificate chain file")
 	sinceStr := fs.String("since", "", "Return vouchers created after this time (ISO 8601 / RFC 3339)")
 	untilStr := fs.String("until", "", "Return vouchers created before this time (ISO 8601 / RFC 3339)")
 	continuation := fs.String("continuation", "", "Opaque continuation token from a previous pull response")
@@ -35,21 +38,14 @@ func runPullCommand() {
 
 	if *holderURL == "" {
 		fmt.Fprintf(os.Stderr, "error: -url is required\n")
-		fmt.Fprintf(os.Stderr, "Usage: fdo-voucher-manager pull -url <holder-url> [-key <key.pem>] [-since <time>] [-continuation <token>]\n")
+		fmt.Fprintf(os.Stderr, "Usage: fdo-voucher-manager pull -url <holder-url> [-key <key.pem>] [-since <time>]\n")
+		fmt.Fprintf(os.Stderr, "       fdo-voucher-manager pull -url <holder-url> -owner-pub <pub.pem> -delegate-key <key.pem> -delegate-chain <chain.pem>\n")
 		os.Exit(1)
 	}
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
-	ownerKey := loadOrGenerateKey(*keyFile, *keyType)
-
-	client := &transfer.PullAuthClient{
-		OwnerKey: ownerKey,
-		BaseURL:  *holderURL,
-		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-	}
+	client := buildPullAuthClient(*holderURL, *keyFile, *keyType, *ownerPubFile, *delegateKeyFile, *delegateChainFile)
 
 	ctx := context.Background()
 
@@ -168,10 +164,10 @@ func runPullCommand() {
 
 	if *jsonOutput {
 		out := map[string]interface{}{
-			"status":        "success",
-			"listed":        len(allVouchers),
-			"downloaded":    downloaded,
-			"continuation":  lastContinuation,
+			"status":       "success",
+			"listed":       len(allVouchers),
+			"downloaded":   downloaded,
+			"continuation": lastContinuation,
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -182,6 +178,71 @@ func runPullCommand() {
 			fmt.Printf("Continuation token: %s\n", lastContinuation)
 		}
 	}
+}
+
+// buildPullAuthClient constructs a PullAuthClient with either standard owner-key
+// authentication or delegate-based authentication.
+//
+//nolint:gocyclo // CLI helper with multiple validation paths
+func buildPullAuthClient(holderURL, keyFile, keyType, ownerPubFile, delegateKeyFile, delegateChainFile string) *transfer.PullAuthClient {
+	client := &transfer.PullAuthClient{
+		BaseURL: holderURL,
+		HTTPClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+
+	if delegateKeyFile != "" || delegateChainFile != "" {
+		// Delegate-based pull
+		if delegateKeyFile == "" || delegateChainFile == "" {
+			fmt.Fprintf(os.Stderr, "error: -delegate-key and -delegate-chain must both be set for delegate pull\n")
+			os.Exit(1)
+		}
+		if ownerPubFile == "" && keyFile == "" {
+			fmt.Fprintf(os.Stderr, "error: -owner-pub or -key is required for delegate pull\n")
+			os.Exit(1)
+		}
+
+		if ownerPubFile != "" {
+			ownerPub, err := LoadPublicKeyFromFile(ownerPubFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error loading owner public key: %v\n", err)
+				os.Exit(1)
+			}
+			client.OwnerPublicKey = ownerPub
+		} else {
+			ownerPriv, err := LoadPrivateKeyFromFile(keyFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error loading owner key: %v\n", err)
+				os.Exit(1)
+			}
+			client.OwnerKey = ownerPriv
+		}
+
+		delegateKey, err := LoadPrivateKeyFromFile(delegateKeyFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error loading delegate key: %v\n", err)
+			os.Exit(1)
+		}
+		client.DelegateKey = delegateKey
+
+		delegateChain, err := loadCertChainFromFile(delegateChainFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error loading delegate chain: %v\n", err)
+			os.Exit(1)
+		}
+		client.DelegateChain = delegateChain
+
+		slog.Info("using delegate-based pull authentication",
+			"delegate_chain_len", len(delegateChain),
+			"has_owner_pub", ownerPubFile != "",
+		)
+	} else {
+		// Standard pull: owner private key
+		client.OwnerKey = loadOrGenerateKey(keyFile, keyType)
+	}
+
+	return client
 }
 
 // loadOrGenerateKey loads a private key from file or generates an ephemeral one.

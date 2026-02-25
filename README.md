@@ -98,6 +98,25 @@ The server will:
 ./fdo-voucher-manager vouchers retry -guid <guid> -config config.yaml
 ```
 
+#### Pull Vouchers
+
+```bash
+# Pull with owner private key (standard)
+./fdo-voucher-manager pull -url http://holder:8083 -key owner.pem -output ./vouchers/
+
+# Pull with delegate certificate (intra-org or cross-org)
+./fdo-voucher-manager pull -url http://holder:8083 \
+    -owner-pub owner-public.pem \
+    -delegate-key delegate.pem \
+    -delegate-chain chain.pem \
+    -output ./vouchers/
+
+# PullAuth handshake only (get session token)
+./fdo-voucher-manager pullauth -url http://holder:8083 -key owner.pem
+```
+
+**Delegate-based pull** allows entities to pull vouchers without the owner's private key, using a delegate certificate with `voucher-claim` permission. This supports intra-organization distribution (internal services pulling from a central voucher service) and cross-organization pull (pulling from an upstream provider). See **[VOUCHER_SUPPLY_CHAIN.md](VOUCHER_SUPPLY_CHAIN.md#intra-organization-distribution-delegate-pull)** for details.
+
 #### Manage Authentication Tokens
 
 ```bash

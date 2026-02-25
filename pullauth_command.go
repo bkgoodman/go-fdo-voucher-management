@@ -4,74 +4,36 @@
 package main
 
 import (
-	"crypto"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
-	"time"
-
-	"github.com/fido-device-onboard/go-fdo/did"
-	"github.com/fido-device-onboard/go-fdo/transfer"
 )
 
 // runPullAuthCommand performs a PullAuth handshake against a remote Holder.
-// It uses the local instance's DID-minted owner key to authenticate.
+// Supports both standard owner-key authentication and delegate-based authentication.
 func runPullAuthCommand() {
 	fs := flag.NewFlagSet("pullauth", flag.ExitOnError)
 	holderURL := fs.String("url", "", "Holder base URL (e.g., http://localhost:8083)")
-	keyFile := fs.String("key", "", "PEM-encoded private key file for authentication")
+	keyFile := fs.String("key", "", "PEM-encoded owner private key file (for non-delegate pull)")
 	keyType := fs.String("key-type", "ec384", "Key type to generate if -key not provided (ec256, ec384, rsa2048)")
+	ownerPubFile := fs.String("owner-pub", "", "PEM-encoded owner public key file (for delegate-based pull)")
+	delegateKeyFile := fs.String("delegate-key", "", "PEM-encoded delegate private key file")
+	delegateChainFile := fs.String("delegate-chain", "", "PEM-encoded delegate certificate chain file")
 	jsonOutput := fs.Bool("json", false, "Output result as JSON")
 	fs.Parse(os.Args[2:])
 
 	if *holderURL == "" {
 		fmt.Fprintf(os.Stderr, "error: -url is required\n")
 		fmt.Fprintf(os.Stderr, "Usage: fdo-voucher-manager pullauth -url <holder-url> [-key <key.pem>]\n")
+		fmt.Fprintf(os.Stderr, "       fdo-voucher-manager pullauth -url <holder-url> -owner-pub <pub.pem> -delegate-key <key.pem> -delegate-chain <chain.pem>\n")
 		os.Exit(1)
 	}
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
-	// Load or generate the owner key
-	var ownerKey crypto.Signer
-	if *keyFile != "" {
-		signer, err := LoadPrivateKeyFromFile(*keyFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error loading key: %v\n", err)
-			os.Exit(1)
-		}
-		ownerKey = signer
-	} else {
-		// Generate an ephemeral key for testing
-		keyCfg := did.DefaultKeyConfig()
-		switch *keyType {
-		case "ec256":
-			keyCfg = did.KeyConfig{Type: "EC", Curve: "P-256"}
-		case "ec384":
-			keyCfg = did.KeyConfig{Type: "EC", Curve: "P-384"}
-		case "rsa2048":
-			keyCfg = did.KeyConfig{Type: "RSA", Bits: 2048}
-		}
-		result, err := did.Mint("localhost", "", "", keyCfg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error generating key: %v\n", err)
-			os.Exit(1)
-		}
-		ownerKey = result.PrivateKey
-		slog.Info("generated ephemeral owner key", "type", *keyType)
-	}
-
-	// Create PullAuth client
-	client := &transfer.PullAuthClient{
-		OwnerKey: ownerKey,
-		BaseURL:  *holderURL,
-		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-	}
+	client := buildPullAuthClient(*holderURL, *keyFile, *keyType, *ownerPubFile, *delegateKeyFile, *delegateChainFile)
 
 	slog.Info("starting PullAuth handshake", "holder", *holderURL)
 

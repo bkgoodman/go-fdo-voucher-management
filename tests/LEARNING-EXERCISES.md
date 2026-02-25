@@ -1,18 +1,10 @@
-# Learning Exercises for E2E DID Push-Pull Test
+# Exercises — FDO Voucher Supply Chain
 
-This document provides hands-on exercises to deepen your understanding of FDO voucher supply chains. Each exercise builds on the base test to explore different scenarios and configurations.
+Things to try once you've run the basic tests. Each exercise tweaks the base `test-e2e-did-push-pull.sh` test to explore a different scenario.
 
 ## Exercise 1: Reverse the Supply Chain Direction
 
-### Exercise 1 Objective
-
-Reverse the flow so the customer pushes to the manufacturer instead of the manufacturer pushing to the customer.
-
-### Exercise 1 Background
-
-In some supply chains, the customer might initiate voucher transfers (e.g., when a customer wants to return devices or transfer ownership back to the manufacturer).
-
-### Exercise 1 Steps
+Flip the flow so the customer pushes to the manufacturer instead of the other way around. This is useful for device returns or ownership transfer-back scenarios.
 
 1. **Copy the base test script**:
 
@@ -44,13 +36,7 @@ run_test "Create Second Config with First's DID" step_create_second_config
 step_start_second || exit 1
 ```
 
-### Exercise 1 What You'll Learn
-
-- How DID-based discovery works in both directions
-- The flexibility of push vs pull models
-- How configuration changes affect supply chain flow
-
-### Exercise 1 Verification
+**Verify:**
 
 ```bash
 # Run the modified test
@@ -62,15 +48,7 @@ ls -la tests/data/vouchers-e2e-first/
 
 ## Exercise 2: Add a Distributor Middleman
 
-### Exercise 2 Objective
-
-Create a three-party supply chain: Factory → Distributor → Customer.
-
-### Exercise 2 Background
-
-Many real supply chains include intermediaries like distributors who add value and handle logistics.
-
-### Exercise 2 Steps
+Create a three-party chain: Factory → Distributor → Customer. Most real supply chains have intermediaries — this is how you model that.
 
 1. **Create a third configuration**:
 
@@ -140,14 +118,7 @@ DISTRIBUTOR_DID_URI=""
 DISTRIBUTOR_VOUCHER_URL=""
 ```
 
-### Exercise 2 What You'll Learn
-
-- How vouchers flow through multiple intermediaries
-- DID resolution in multi-hop scenarios
-- Configuration management for complex chains
-- Debugging multi-party failures
-
-### Exercise 2 Verification
+**Verify:**
 
 ```bash
 # Check all three storage directories
@@ -159,17 +130,9 @@ ls -la tests/data/vouchers-e2e-second/
 # (You'll need to examine the voucher contents)
 ```
 
-## Exercise 3: Static Endpoints Without DID Resolution
+## Exercise 3: Static Endpoints (No DID Resolution)
 
-### Exercise 3 Objective
-
-Configure the system to use static endpoints instead of DID-based discovery.
-
-### Exercise 3 Background
-
-Some organizations prefer static configuration for security or simplicity reasons.
-
-### Exercise 3 Steps
+Skip DID discovery entirely and just hardcode endpoints. Sometimes simpler is better.
 
 1. **Create static configuration**:
 
@@ -224,13 +187,7 @@ sed "s|static_public_key: \"\"|static_public_key: \"$CUSTOMER_PUBLIC_KEY\"|" \
     config-e2e-first-static.yaml > config-e2e-first-live-static.yaml
 ```
 
-### Exercise 3 What You'll Learn
-
-- Trade-offs between DID discovery and static configuration
-- How to extract and use public keys directly
-- When static configuration might be preferable
-
-### Exercise 3 Verification
+**Verify:**
 
 ```bash
 # Run the static version
@@ -240,15 +197,9 @@ sed "s|static_public_key: \"\"|static_public_key: \"$CUSTOMER_PUBLIC_KEY\"|" \
 grep "resolved.*DID" tests/data/first.log || echo "No DID resolution (expected)"
 ```
 
-## Exercise 4: Failure Scenario Simulation
+## Exercise 4: Break Things
 
-### Exercise 4 Objective
-
-Simulate various failure scenarios and observe how the system handles them.
-
-### Exercise 4 Background
-
-Understanding failure modes is crucial for production deployments.
+Simulate failures and see how the system reacts. Good to know before you hit these in production.
 
 ### Scenario A: Network Partition
 
@@ -302,14 +253,7 @@ curl -s http://localhost:8084/.well-known/did.json
 # This should cause signature validation to fail
 ```
 
-### Exercise 4 What You'll Learn
-
-- Retry behavior and backoff strategies
-- How different failure types are handled
-- Debugging techniques for complex failures
-- The importance of proper error handling
-
-### Exercise 4 Verification
+**Verify:**
 
 ```bash
 # Check retry attempts
@@ -319,17 +263,9 @@ grep "retry" tests/data/first.log | wc -l
 grep -i "error\|fail" tests/data/first.log
 ```
 
-## Exercise 5: Performance and Scaling
+## Exercise 5: Load Testing
 
-### Exercise 5 Objective
-
-Test the system under load and observe performance characteristics.
-
-### Exercise 5 Background
-
-Understanding performance limits helps with capacity planning.
-
-### Exercise 5 Steps
+Push a bunch of vouchers and see what happens.
 
 1. **Generate multiple vouchers**:
 
@@ -363,14 +299,7 @@ time ./tests/exercise-5-performance.sh
 ps aux | grep fdo-voucher-manager
 ```
 
-### Exercise 5 What You'll Learn
-
-- System throughput limits
-- Resource utilization patterns
-- Bottleneck identification
-- Scaling considerations
-
-### Exercise 5 Verification
+**Verify:**
 
 ```bash
 # Count successful deliveries
@@ -382,15 +311,7 @@ grep -i "error\|fail" tests/data/*.log
 
 ## Exercise 6: Security Hardening
 
-### Exercise 6 Objective
-
-Implement security best practices and verify their effectiveness.
-
-### Exercise 6 Background
-
-Production systems need robust security controls.
-
-### Exercise 6 Steps
+Lock things down — auth tokens, ownership validation, TLS.
 
 1. **Enable authentication**:
 
@@ -433,14 +354,7 @@ server:
   key_file: "/path/to/key.pem"
 ```
 
-### Exercise 6 What You'll Learn
-
-- How authentication controls work
-- Token management best practices
-- TLS configuration requirements
-- Security testing methodologies
-
-### Exercise 6 Verification
+**Verify:**
 
 ```bash
 # Test authentication failures
@@ -457,15 +371,7 @@ curl -i -X POST http://localhost:8083/api/v1/vouchers \
 
 ## Exercise 7: Custom Callback Integration
 
-### Exercise 7 Objective
-
-Implement custom callbacks for dynamic owner resolution and extra data.
-
-### Exercise 7 Background
-
-Callbacks enable integration with external systems for dynamic decision making.
-
-### Exercise 7 Steps
+Hook in external systems for dynamic owner resolution and extra voucher data.
 
 1. **Create a callback server**:
 
@@ -527,14 +433,7 @@ ove_extra_data_service:
 tail -f tests/data/first.log | grep "callback"
 ```
 
-### Exercise 7 What You'll Learn
-
-- How callbacks enable dynamic behavior
-- Integration patterns with external systems
-- Callback error handling
-- Performance considerations
-
-### Exercise 7 Verification
+**Verify:**
 
 ```bash
 # Check callback server logs
@@ -542,9 +441,9 @@ tail -f tests/data/first.log | grep "callback"
 # Test callback failure scenarios
 ```
 
-## Debugging Tips for All Exercises
+## Debugging Tips
 
-### Common Issues and Solutions
+### Common Issues
 
 1. **Port conflicts**:
 
@@ -608,23 +507,8 @@ netstat -an | grep :808
 lsof -p $(pgrep fdo-voucher-manager)
 ```
 
-## Learning Outcomes
+## What's Next
 
-After completing these exercises, you should understand:
+Once you've worked through these, try combining them — e.g., a three-party chain with callbacks and auth tokens. Or model your actual supply chain and see how it maps to the configuration options.
 
-1. **Supply Chain Flexibility**: How to configure different flow patterns
-2. **Failure Handling**: How the system responds to various failure modes
-3. **Performance Characteristics**: Throughput limits and resource usage
-4. **Security Controls**: Authentication, authorization, and encryption
-5. **Integration Patterns**: Callbacks and external system integration
-6. **Debugging Techniques**: Systematic troubleshooting approaches
-
-## Next Steps
-
-1. **Combine Exercises**: Try mixing multiple concepts (e.g., three-party chain with callbacks)
-2. **Real-World Scenarios**: Model your actual supply chain requirements
-3. **Performance Testing**: Scale up to hundreds or thousands of vouchers
-4. **Security Auditing**: Implement comprehensive security controls
-5. **Production Planning**: Design deployment strategies for production use
-
-These exercises provide hands-on experience with FDO voucher supply chains and prepare you for real-world implementations.
+See [CONFIGURATION-GUIDE.md](CONFIGURATION-GUIDE.md) for the full set of knobs available.

@@ -79,6 +79,33 @@ Large customers (enterprises, fleet operators) may operate their own voucher man
 └──────────────┘     └────────────┘       └──────────────────┘
 ```
 
+### Intra-Organization Distribution (Delegate Pull)
+
+Within a single organization, different teams or services may need access to vouchers without a full sign-over. For example, a central voucher service holds vouchers signed to the organization's owner key, and regional onboarding services need to pull those vouchers:
+
+```text
+┌──────────────────┐
+│  Regional Svc A  │──┐
+│  (delegate cert) │  │  pull (delegate auth)
+└──────────────────┘  │     ┌──────────────────────┐
+                      ├────▶│  Central Voucher      │
+┌──────────────────┐  │     │  Service              │
+│  Regional Svc B  │──┘     │  (holds owner key)    │
+│  (delegate cert) │        └──────────────────────┘
+└──────────────────┘
+```
+
+In this model, **no sign-over occurs** — vouchers remain signed to the central owner key. Instead, each regional service authenticates using a **delegate certificate** issued by the central service, with `voucher-claim` permission. The delegate certificate proves they are authorized to pull vouchers on behalf of the organization.
+
+This is implemented via the PullAuth protocol with delegate support:
+
+1. Regional service generates a keypair and CSR
+2. Central service signs the CSR with `voucher-claim` permission using the owner key
+3. Regional service uses the delegate cert + key for PullAuth authentication
+4. PullAuth server validates the delegate chain is rooted at the owner key and has `voucher-claim`
+
+For CLI commands to issue delegate certificates, see `go-fdo/delegate.md` (CSR Workflow section).
+
 ### Third-Party and SaaS Voucher Services
 
 Not every organization wants to stand up and operate their own voucher management infrastructure. Voucher services, whether for an OEM, a reseller, or an end customer, may be operated by a third party or offered as a cloud SaaS product. The APIs and protocols are the same regardless of who operates the service.

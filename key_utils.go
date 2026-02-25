@@ -178,6 +178,36 @@ func LoadPublicKeyFromFile(filename string) (crypto.PublicKey, error) {
 	return LoadPublicKeyFromPEM(pemData)
 }
 
+// loadCertChainFromFile loads an X.509 certificate chain from a PEM file.
+// Returns certificates in the order they appear in the file.
+func loadCertChainFromFile(filename string) ([]*x509.Certificate, error) {
+	pemData, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	var chain []*x509.Certificate
+	rest := pemData
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse certificate: %w", err)
+		}
+		chain = append(chain, cert)
+	}
+	if len(chain) == 0 {
+		return nil, fmt.Errorf("no certificates found in %s", filename)
+	}
+	return chain, nil
+}
+
 // LoadPrivateKeyFromFile loads a private key from a PEM file
 func LoadPrivateKeyFromFile(filename string) (crypto.Signer, error) {
 	if filename == "" {
