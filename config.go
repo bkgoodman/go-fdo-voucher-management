@@ -38,11 +38,12 @@ type Config struct {
 
 	// Voucher receiver configuration (inbound push)
 	VoucherReceiver struct {
-		Enabled           bool   `yaml:"enabled"`
-		Endpoint          string `yaml:"endpoint"`           // HTTP path, e.g., "/api/v1/vouchers"
-		GlobalToken       string `yaml:"global_token"`       // Optional bearer token
-		ValidateOwnership bool   `yaml:"validate_ownership"` // Validate voucher is signed to our owner key
-		RequireAuth       bool   `yaml:"require_auth"`       // Require authentication
+		Enabled                    bool   `yaml:"enabled"`
+		Endpoint                   string `yaml:"endpoint"`                     // HTTP path, e.g., "/api/v1/vouchers"
+		GlobalToken                string `yaml:"global_token"`                 // Optional bearer token
+		ValidateOwnership          bool   `yaml:"validate_ownership"`           // Validate voucher is signed to our owner key
+		RequireAuth                bool   `yaml:"require_auth"`                 // Require authentication
+		RequireTrustedManufacturer bool   `yaml:"require_trusted_manufacturer"` // Reject vouchers from unknown manufacturers
 	} `yaml:"voucher_receiver"`
 
 	// Voucher signing configuration
@@ -173,17 +174,19 @@ func DefaultConfig() *Config {
 			ImportKeyFile: "",
 		},
 		VoucherReceiver: struct {
-			Enabled           bool   `yaml:"enabled"`
-			Endpoint          string `yaml:"endpoint"`
-			GlobalToken       string `yaml:"global_token"`
-			ValidateOwnership bool   `yaml:"validate_ownership"`
-			RequireAuth       bool   `yaml:"require_auth"`
+			Enabled                    bool   `yaml:"enabled"`
+			Endpoint                   string `yaml:"endpoint"`
+			GlobalToken                string `yaml:"global_token"`
+			ValidateOwnership          bool   `yaml:"validate_ownership"`
+			RequireAuth                bool   `yaml:"require_auth"`
+			RequireTrustedManufacturer bool   `yaml:"require_trusted_manufacturer"`
 		}{
-			Enabled:           true,
-			Endpoint:          "/api/v1/vouchers",
-			GlobalToken:       "",
-			ValidateOwnership: false,
-			RequireAuth:       false,
+			Enabled:                    true,
+			Endpoint:                   "/api/v1/vouchers",
+			GlobalToken:                "",
+			ValidateOwnership:          false,
+			RequireAuth:                false,
+			RequireTrustedManufacturer: false,
 		},
 		VoucherSigning: struct {
 			Mode            string        `yaml:"mode"`

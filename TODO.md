@@ -143,7 +143,7 @@ Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher 
 
 ### 8.6 Holder Signature Verification by Recipient (Spec §9.8.3)
 
-- ⚠️ **Client does not verify HolderSignature**: `pullauth_client.go:147-153` attempts to verify but catches and ignores the error because it doesn't have the Holder's public key. Spec says SHOULD verify when Holder key is known (e.g., from the Holder's DID document). The client has no mechanism to supply a known Holder key.
+- ✅ **Client verifies HolderSignature**: `PullAuthClient.HolderPublicKey` field enables cryptographic verification of the Holder's COSE_Sign1 signature. When set, verifies signature + payload contents (type tag, nonces, hash, owner key). When nil, verification is skipped with a warning. CLI: `-holder-key <file>`.
 
 ### 8.7 Delegation Support (Spec §9.6)
 
@@ -273,7 +273,7 @@ This is the **primary security model** for the protocol. Mutual DID exchange is 
 
 These are gaps in the spec's **core** security model (§12) — the mechanisms that are REQUIRED for secure voucher transfer.
 
-- [ ] **Voucher signature verification against manufacturer DID keys** (§12.2 Case 2) — This is the primary push authentication mechanism in the DID-based model. Currently, push auth relies on bearer tokens (a defense-in-depth layer), not cryptographic signature verification.
+- [~] **Voucher signature verification against manufacturer DID keys** (§12.2 Case 2) — PartnerStore with trust DB, `did:key` resolution, manufacturer key verification on receive, DID doc refresh worker. Remaining: partner CLI, config bootstrap, multi-partner destination resolution.
 - [x] **Emit `FDOVoucherHolder` DID service entry** — Wired into `NewDocument()`, `Mint()`, and `did_minting_setup.go` with auto-construction from pull service config.
 - [x] Return `application/x-fdo-voucher` Content-Type on voucher downloads (§8.2, §15)
 - [x] Add `Content-Disposition` header on voucher downloads (§8.2)
@@ -291,7 +291,7 @@ These are gaps in the spec's **core** security model (§12) — the mechanisms t
 - [x] Add `request_id` to error responses (§10.2)
 - [x] Distinguish 401 vs 403 error responses (§7.1)
 - [x] Add `X-FDO-Version` header support (§7.1) — middleware adds `X-FDO-Version: 1.0` to all responses
-- [ ] Add HolderSignature verification support in PullAuth client using Holder's DID key (§9.8.3)
+- [x] Add HolderSignature verification support in PullAuth client using Holder's DID key (§9.8.3)
 - [x] Add `tlsCertificateAuthority` field to `Service` struct in `did/document.go` (§12.5.3)
 - [x] Implement `fields` query parameter for Pull API list endpoint (§8.1) — supports voucher_id, serial_number, model_number, device_info, created_at
 
@@ -307,7 +307,7 @@ These are defense-in-depth layers (§12.7), optional spec features, or future en
 - [ ] Implement long-polling endpoint `GET {root}/subscribe` (§8.3)
 - [ ] Implement SSE stream endpoint `GET {root}/stream` (§8.4)
 - [ ] Add gzip compression support for voucher uploads (§5)
-- [ ] Implement `did:key` resolution
+- [x] Implement `did:key` resolution (P-256, P-384 via multicodec + base58-btc)
 - [ ] Implement circuit breaker for push retries (§13)
 - [ ] Implement dead letter queue / alerting for permanently failed pushes (§13)
 - [ ] Add DID document `fido-device-onboarding` informational extension (§12.7)
@@ -390,8 +390,8 @@ Test: `go test ./did/...`
 
 These require more thought and should NOT be batched:
 
-- **Voucher signature verification against manufacturer DID keys** — needs a trust store, DID key resolution at receive time, signature extraction from voucher CBOR
+- ~~**Voucher signature verification against manufacturer DID keys**~~ — IN PROGRESS: `PartnerStore` (SQLite `partners` table) with CRUD, `did:key` resolution (P-256/P-384), manufacturer key verification in receiver handler, DID document refresh worker. Still need: partner CLI commands, config bootstrap, multi-partner destination resolution.
 - ~~**HolderInfo CBOR map vs array**~~ — DONE: custom MarshalCBOR/UnmarshalCBOR encode as CBOR map
 - ~~**OwnerKeyFingerprint algorithm alignment**~~ — DONE: all locations now use CBOR-based SHA-256
 - **Cryptographic continuation tokens** — needs HMAC key management, token format design
-- **HolderSignature verification in client** — needs Holder DID resolution plumbing
+- ~~**HolderSignature verification in client**~~ — DONE: `PullAuthClient.HolderPublicKey` field, full COSE_Sign1 + payload verification, CLI `-holder-key` flag, 3 unit tests (P-256, P-384, wrong key)

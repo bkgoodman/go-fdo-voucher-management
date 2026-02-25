@@ -29,6 +29,7 @@ type VoucherReceiverHandler struct {
 	fileStore     *VoucherFileStore
 	transmitStore *VoucherTransmissionStore
 	pipeline      *VoucherPipeline
+	partnerStore  *PartnerStore
 }
 
 // NewVoucherReceiverHandler creates a new voucher receiver handler
@@ -38,6 +39,7 @@ func NewVoucherReceiverHandler(
 	fileStore *VoucherFileStore,
 	transmitStore *VoucherTransmissionStore,
 	pipeline *VoucherPipeline,
+	partnerStore *PartnerStore,
 ) *VoucherReceiverHandler {
 	return &VoucherReceiverHandler{
 		config:        config,
@@ -45,6 +47,7 @@ func NewVoucherReceiverHandler(
 		fileStore:     fileStore,
 		transmitStore: transmitStore,
 		pipeline:      pipeline,
+		partnerStore:  partnerStore,
 	}
 }
 
@@ -120,6 +123,34 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	model := r.FormValue("model")
 	manufacturer := r.FormValue("manufacturer")
 
+	// Verify the voucher's manufacturer key against the partner trust store.
+	// The manufacturer key is the original key in the voucher header — the entity
+	// that created the voucher. This implements §12.2 Case 2 of the spec.
+	trustedPartner := ""
+	if h.partnerStore != nil {
+		mfgKey, mfgErr := voucher.Header.Val.ManufacturerKey.Public()
+		if mfgErr != nil {
+			slog.Warn("voucher receiver: failed to extract manufacturer key", "error", mfgErr, "source_ip", sourceIP)
+			h.sendErrorR(w, r, http.StatusBadRequest, "failed to extract manufacturer key from voucher")
+			return
+		}
+		partnerID, trusted := h.partnerStore.IsTrustedKey(ctx, mfgKey)
+		if trusted {
+			trustedPartner = partnerID
+			slog.Info("voucher receiver: manufacturer key verified", "partner", partnerID, "source_ip", sourceIP)
+		} else if h.config.VoucherReceiver.RequireTrustedManufacturer {
+			mfgFP := FingerprintPublicKeyHex(mfgKey)
+			slog.Warn("voucher receiver: untrusted manufacturer key",
+				"fingerprint", mfgFP, "source_ip", sourceIP)
+			h.sendErrorR(w, r, http.StatusForbidden, "voucher manufacturer key is not trusted")
+			return
+		} else {
+			mfgFP := FingerprintPublicKeyHex(mfgKey)
+			slog.Info("voucher receiver: manufacturer key not in trust store (verification not enforced)",
+				"fingerprint", mfgFP, "source_ip", sourceIP)
+		}
+	}
+
 	// Extract the current owner public key fingerprint from the voucher.
 	// This identifies which owner the voucher is signed over to, and is used
 	// to scope Pull API access so owners can only list/download their own vouchers.
@@ -130,6 +161,7 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		"serial", serial,
 		"model", model,
 		"manufacturer", manufacturer,
+		"trusted_partner", trustedPartner,
 		"owner_key_fingerprint", ownerKeyFP,
 		"source_ip", sourceIP,
 		"size", header.Size)

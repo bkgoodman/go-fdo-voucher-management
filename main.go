@@ -168,6 +168,12 @@ func runServer() {
 
 	fileStore := NewVoucherFileStore(config.VoucherFiles.Directory)
 
+	partnerStore := NewPartnerStore(db)
+	if err := partnerStore.Init(ctx); err != nil {
+		slog.Error("failed to initialize partner store", "error", err)
+		os.Exit(1)
+	}
+
 	// Initialize services
 	signingService := NewVoucherSigningService(config.VoucherSigning.Mode, config.VoucherSigning.ExternalCommand, config.VoucherSigning.ExternalTimeout)
 
@@ -217,6 +223,7 @@ func runServer() {
 		fileStore,
 		transmitStore,
 		pipeline,
+		partnerStore,
 	)
 
 	// Setup HTTP server
@@ -244,6 +251,12 @@ func runServer() {
 	// Start retry worker
 	retryWorker := NewVoucherRetryWorker(config, transmitStore, pushService)
 	retryWorker.Start(ctx)
+
+	// Start partner DID document refresh worker
+	if config.DIDCache.Enabled {
+		refreshWorker := NewPartnerRefreshWorker(partnerStore, didResolver, config.DIDCache.RefreshInterval, config.DIDCache.MaxAge)
+		refreshWorker.Start(ctx)
+	}
 
 	// Start server in background
 	go func() {

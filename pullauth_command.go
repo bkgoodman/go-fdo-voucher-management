@@ -21,6 +21,7 @@ func runPullAuthCommand() {
 	ownerPubFile := fs.String("owner-pub", "", "PEM-encoded owner public key file (for delegate-based pull)")
 	delegateKeyFile := fs.String("delegate-key", "", "PEM-encoded delegate private key file")
 	delegateChainFile := fs.String("delegate-chain", "", "PEM-encoded delegate certificate chain file")
+	holderKeyFile := fs.String("holder-key", "", "PEM-encoded Holder public key file (for HolderSignature verification)")
 	jsonOutput := fs.Bool("json", false, "Output result as JSON")
 	fs.Parse(os.Args[2:])
 
@@ -33,7 +34,7 @@ func runPullAuthCommand() {
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
-	client := buildPullAuthClient(*holderURL, *keyFile, *keyType, *ownerPubFile, *delegateKeyFile, *delegateChainFile)
+	client := buildPullAuthClient(*holderURL, *keyFile, *keyType, *ownerPubFile, *delegateKeyFile, *delegateChainFile, *holderKeyFile)
 
 	slog.Info("starting PullAuth handshake", "holder", *holderURL)
 

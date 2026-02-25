@@ -6,16 +6,20 @@ package main
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	fdodid "github.com/fido-device-onboard/go-fdo/did"
+	"github.com/mr-tron/base58"
 )
 
 // DIDResolver handles DID resolution with caching
@@ -50,7 +54,9 @@ func (r *DIDResolver) ResolveDIDKey(ctx context.Context, didURI string) (crypto.
 	}
 
 	if strings.HasPrefix(didURI, "did:key:") {
-		return nil, "", fmt.Errorf("did:key resolution not yet implemented")
+		key, err := parseDIDKey(didURI)
+		// did:key has no service endpoints, so voucherRecipientURL is always empty
+		return key, "", err
 	}
 
 	return nil, "", fmt.Errorf("unsupported DID method in %q", didURI)
@@ -162,4 +168,103 @@ func (r *DIDResolver) webDIDToURL(didURI string) (string, error) {
 
 	path := strings.Join(parts[1:], "/")
 	return scheme + "://" + host + "/" + path + "/did.json", nil
+}
+
+// parseDIDKey decodes a did:key URI into a crypto.PublicKey.
+// Supports P-256 and P-384 keys encoded per the did:key spec v0.9:
+//
+//	did:key:z<base58btc(multicodec-varint + compressed-ec-point)>
+//
+// Multicodec varint prefixes:
+//   - P-256: 0x80 0x24  (code 0x1200)
+//   - P-384: 0x81 0x24  (code 0x1201)
+func parseDIDKey(didURI string) (crypto.PublicKey, error) {
+	if !strings.HasPrefix(didURI, "did:key:z") {
+		return nil, fmt.Errorf("did:key URI must start with 'did:key:z': %q", didURI)
+	}
+
+	// Strip "did:key:z" — the "z" is the multibase prefix for base58-btc
+	encoded := strings.TrimPrefix(didURI, "did:key:z")
+
+	decoded, err := base58.Decode(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("did:key: base58 decode failed: %w", err)
+	}
+
+	if len(decoded) < 3 {
+		return nil, fmt.Errorf("did:key: decoded data too short (%d bytes)", len(decoded))
+	}
+
+	// Parse multicodec varint prefix (2 bytes for P-256/P-384)
+	var curve elliptic.Curve
+	var keyBytes []byte
+	switch {
+	case decoded[0] == 0x80 && decoded[1] == 0x24:
+		// P-256 (multicodec 0x1200)
+		curve = elliptic.P256()
+		keyBytes = decoded[2:]
+	case decoded[0] == 0x81 && decoded[1] == 0x24:
+		// P-384 (multicodec 0x1201)
+		curve = elliptic.P384()
+		keyBytes = decoded[2:]
+	default:
+		return nil, fmt.Errorf("did:key: unsupported multicodec prefix 0x%02x 0x%02x", decoded[0], decoded[1])
+	}
+
+	// Decompress the EC point
+	x, y := decompressPoint(curve, keyBytes)
+	if x == nil {
+		return nil, fmt.Errorf("did:key: failed to decompress EC point for %s", curve.Params().Name)
+	}
+
+	pub := &ecdsa.PublicKey{Curve: curve, X: x, Y: y}
+	if !curve.IsOnCurve(x, y) {
+		return nil, fmt.Errorf("did:key: decoded point is not on curve %s", curve.Params().Name)
+	}
+
+	return pub, nil
+}
+
+// decompressPoint decompresses a SEC1-compressed EC point (33 or 49 bytes)
+// into (x, y) coordinates. The first byte is 0x02 (even y) or 0x03 (odd y).
+func decompressPoint(curve elliptic.Curve, data []byte) (*big.Int, *big.Int) {
+	byteLen := (curve.Params().BitSize + 7) / 8
+	if len(data) != 1+byteLen {
+		return nil, nil
+	}
+	if data[0] != 0x02 && data[0] != 0x03 {
+		return nil, nil
+	}
+
+	// x coordinate
+	x := new(big.Int).SetBytes(data[1:])
+	p := curve.Params().P
+
+	// y² = x³ + ax + b  (for NIST curves, a = -3)
+	// y² = x³ - 3x + b (mod p)
+	x3 := new(big.Int).Mul(x, x)
+	x3.Mul(x3, x)
+	x3.Mod(x3, p)
+
+	threeX := new(big.Int).Mul(big.NewInt(3), x)
+	threeX.Mod(threeX, p)
+
+	y2 := new(big.Int).Sub(x3, threeX)
+	y2.Add(y2, curve.Params().B)
+	y2.Mod(y2, p)
+
+	// y = sqrt(y²) mod p
+	y := new(big.Int).ModSqrt(y2, p)
+	if y == nil {
+		return nil, nil
+	}
+
+	// Choose the correct y based on the sign bit
+	isOdd := y.Bit(0) == 1
+	wantOdd := data[0] == 0x03
+	if isOdd != wantOdd {
+		y.Sub(p, y)
+	}
+
+	return x, y
 }

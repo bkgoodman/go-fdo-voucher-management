@@ -33,6 +33,7 @@ func runPullCommand() {
 	limit := fs.Int("limit", 0, "Maximum vouchers to return per page (0 = server default)")
 	outputDir := fs.String("output", "", "Directory to save downloaded voucher files (default: print metadata only)")
 	jsonOutput := fs.Bool("json", false, "Output result as JSON")
+	holderKeyFile := fs.String("holder-key", "", "PEM-encoded Holder public key file (for HolderSignature verification)")
 	listOnly := fs.Bool("list", false, "List vouchers only (do not download)")
 	fs.Parse(os.Args[2:])
 
@@ -45,7 +46,7 @@ func runPullCommand() {
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
-	client := buildPullAuthClient(*holderURL, *keyFile, *keyType, *ownerPubFile, *delegateKeyFile, *delegateChainFile)
+	client := buildPullAuthClient(*holderURL, *keyFile, *keyType, *ownerPubFile, *delegateKeyFile, *delegateChainFile, *holderKeyFile)
 
 	ctx := context.Background()
 
@@ -184,7 +185,7 @@ func runPullCommand() {
 // authentication or delegate-based authentication.
 //
 //nolint:gocyclo // CLI helper with multiple validation paths
-func buildPullAuthClient(holderURL, keyFile, keyType, ownerPubFile, delegateKeyFile, delegateChainFile string) *transfer.PullAuthClient {
+func buildPullAuthClient(holderURL, keyFile, keyType, ownerPubFile, delegateKeyFile, delegateChainFile, holderKeyFile string) *transfer.PullAuthClient {
 	client := &transfer.PullAuthClient{
 		BaseURL: holderURL,
 		HTTPClient: &http.Client{
@@ -240,6 +241,17 @@ func buildPullAuthClient(holderURL, keyFile, keyType, ownerPubFile, delegateKeyF
 	} else {
 		// Standard pull: owner private key
 		client.OwnerKey = loadOrGenerateKey(keyFile, keyType)
+	}
+
+	// Load Holder public key for HolderSignature verification if provided
+	if holderKeyFile != "" {
+		holderPub, err := LoadPublicKeyFromFile(holderKeyFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error loading holder public key: %v\n", err)
+			os.Exit(1)
+		}
+		client.HolderPublicKey = holderPub
+		slog.Info("holder signature verification enabled", "key_file", holderKeyFile)
 	}
 
 	return client
