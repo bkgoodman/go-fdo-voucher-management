@@ -37,6 +37,17 @@ func setupDIDMinting(config *Config, mux *http.ServeMux, signingService *Voucher
 		voucherRecipientURL = scheme + "://" + host + endpoint
 	}
 
+	// Determine the voucher holder URL (for pull endpoint discovery)
+	voucherHolderURL := config.DIDMinting.VoucherHolderURL
+	if voucherHolderURL == "" && config.PullService.Enabled {
+		scheme := "http"
+		if config.Server.UseTLS {
+			scheme = "https"
+		}
+		host := config.DIDMinting.Host
+		voucherHolderURL = scheme + "://" + host + "/api/v1/pull/vouchers"
+	}
+
 	// Determine key config from the service's key_management settings
 	keyCfg := did.DefaultKeyConfig()
 	switch config.KeyManagement.KeyType {
@@ -55,6 +66,7 @@ func setupDIDMinting(config *Config, mux *http.ServeMux, signingService *Voucher
 		config.DIDMinting.Host,
 		config.DIDMinting.Path,
 		voucherRecipientURL,
+		voucherHolderURL,
 		keyCfg,
 	)
 	if err != nil {
@@ -67,6 +79,7 @@ func setupDIDMinting(config *Config, mux *http.ServeMux, signingService *Voucher
 			"did_uri", result.DIDURI,
 			"key_type", keyCfg.Type,
 			"voucher_recipient_url", voucherRecipientURL,
+			"voucher_holder_url", voucherHolderURL,
 		)
 
 		docJSON, err := result.DIDDocument.JSON()

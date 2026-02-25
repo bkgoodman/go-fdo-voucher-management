@@ -5,12 +5,10 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/fido-device-onboard/go-fdo"
@@ -125,11 +123,12 @@ func (s *PullVoucherStore) List(ctx context.Context, ownerKeyFingerprint []byte,
 			continue
 		}
 		seen[rec.VoucherGUID] = true
+		createdAt := rec.CreatedAt
 		vouchers = append(vouchers, transfer.VoucherInfo{
 			GUID:         rec.VoucherGUID,
 			SerialNumber: rec.SerialNumber,
 			ModelNumber:  rec.ModelNumber,
-			CreatedAt:    rec.CreatedAt,
+			CreatedAt:    &createdAt,
 		})
 	}
 
@@ -159,25 +158,14 @@ func (s *PullVoucherStore) Delete(_ context.Context, guid string) error {
 
 // loadVoucherFromFile reads and parses a PEM-encoded voucher file.
 func (s *PullVoucherStore) loadVoucherFromFile(path, guid string) (*transfer.VoucherData, error) {
-	data, err := os.ReadFile(path)
+	ov, err := fdo.ParseVoucherFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read voucher file %s: %w", path, err)
+		return nil, fmt.Errorf("failed to parse voucher file %s: %w", path, err)
 	}
 
-	// Strip PEM headers
-	content := string(data)
-	content = strings.TrimPrefix(content, "-----BEGIN OWNERSHIP VOUCHER-----\n")
-	content = strings.TrimSuffix(content, "-----END OWNERSHIP VOUCHER-----\n")
-	content = strings.TrimSpace(content)
-
-	raw, err := base64.StdEncoding.DecodeString(content)
+	raw, err := cbor.Marshal(ov)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode voucher base64: %w", err)
-	}
-
-	var ov fdo.Voucher
-	if err := cbor.Unmarshal(raw, &ov); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal voucher CBOR: %w", err)
+		return nil, fmt.Errorf("failed to re-encode voucher CBOR: %w", err)
 	}
 
 	return &transfer.VoucherData{
@@ -186,7 +174,7 @@ func (s *PullVoucherStore) loadVoucherFromFile(path, guid string) (*transfer.Vou
 			SerialNumber: "", // not stored in voucher file
 			DeviceInfo:   ov.Header.Val.DeviceInfo,
 		},
-		Voucher: &ov,
+		Voucher: ov,
 		Raw:     raw,
 	}, nil
 }

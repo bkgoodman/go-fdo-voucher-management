@@ -4,7 +4,6 @@
 package main
 
 import (
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -88,12 +87,11 @@ func newPullTokenStore(ttl time.Duration) *pullTokenStore {
 }
 
 func (s *pullTokenStore) issue(ownerKey protocol.PublicKey) (string, time.Time, error) {
-	// Compute fingerprint from the owner key
-	pub, err := ownerKey.Public()
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to extract public key: %w", err)
+	// Compute fingerprint from the CBOR-encoded owner key (matches PullAuth.Result spec)
+	fingerprint := FingerprintProtocolKey(ownerKey)
+	if fingerprint == nil {
+		return "", time.Time{}, fmt.Errorf("failed to compute owner key fingerprint")
 	}
-	fingerprint := fingerprintKey(pub)
 
 	// Generate random token
 	tokenBytes := make([]byte, 32)
@@ -134,8 +132,4 @@ func (s *pullTokenStore) validate(token string) ([]byte, error) {
 		return nil, fmt.Errorf("token expired")
 	}
 	return t.ownerKeyFingerprint, nil
-}
-
-func fingerprintKey(pub crypto.PublicKey) []byte {
-	return FingerprintPublicKey(pub)
 }

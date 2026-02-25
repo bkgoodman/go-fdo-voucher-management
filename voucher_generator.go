@@ -5,13 +5,12 @@ package main
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
-	"strings"
 
+	fdo "github.com/fido-device-onboard/go-fdo"
 	"github.com/fido-device-onboard/go-fdo/cbor"
 )
 
@@ -96,21 +95,6 @@ func GenerateTestVoucherWithOwner(serial, model, ownerKeyFile string) (string, e
 		return "", fmt.Errorf("failed to marshal voucher: %w", err)
 	}
 
-	// Encode as base64
-	base64Data := base64.StdEncoding.EncodeToString(voucherBytes)
-
-	// Wrap in PEM format
-	var pemBuilder strings.Builder
-	pemBuilder.WriteString("-----BEGIN OWNERSHIP VOUCHER-----\n")
-	for i := 0; i < len(base64Data); i += 64 {
-		end := i + 64
-		if end > len(base64Data) {
-			end = len(base64Data)
-		}
-		pemBuilder.WriteString(base64Data[i:end])
-		pemBuilder.WriteString("\n")
-	}
-	pemBuilder.WriteString("-----END OWNERSHIP VOUCHER-----\n")
-
-	return pemBuilder.String(), nil
+	// Wrap in PEM format using the library function
+	return string(fdo.FormatVoucherCBORToPEM(voucherBytes)), nil
 }

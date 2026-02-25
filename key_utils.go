@@ -20,19 +20,31 @@ import (
 )
 
 // FingerprintPublicKey computes a deterministic SHA-256 fingerprint of a public
-// key by DER-encoding it first. Returns raw bytes. This is the canonical
-// fingerprinting method used for owner-key scoping in the Pull API.
+// key by converting to protocol.PublicKey and CBOR-encoding it. Returns raw
+// 32 bytes. This matches the spec definition of OwnerKeyFingerprint (SHA-256
+// of the CBOR-encoded Owner Key) and the PullAuth server's fingerprint.
 func FingerprintPublicKey(pub crypto.PublicKey) []byte {
-	der, err := x509.MarshalPKIXPublicKey(pub)
+	protoKey, err := publicKeyToProtocol(pub)
 	if err != nil {
 		return nil
 	}
-	h := sha256.Sum256(der)
+	return FingerprintProtocolKey(protoKey)
+}
+
+// FingerprintProtocolKey computes a SHA-256 fingerprint of a CBOR-encoded
+// protocol.PublicKey. This is the canonical fingerprinting method used for
+// owner-key scoping in the Pull API, matching the spec §9.8 definition.
+func FingerprintProtocolKey(pub protocol.PublicKey) []byte {
+	data, err := cbor.Marshal(pub)
+	if err != nil {
+		return nil
+	}
+	h := sha256.Sum256(data)
 	return h[:]
 }
 
 // FingerprintPublicKeyHex returns the hex-encoded SHA-256 fingerprint of a
-// public key's DER encoding.
+// CBOR-encoded public key.
 func FingerprintPublicKeyHex(pub crypto.PublicKey) string {
 	fp := FingerprintPublicKey(pub)
 	if fp == nil {

@@ -5,7 +5,7 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/fido-device-onboard/go-fdo"
-	"github.com/fido-device-onboard/go-fdo/cbor"
 )
 
 const maxVoucherSize = 10 * 1024 * 1024
@@ -55,6 +54,7 @@ type VoucherResponse struct {
 	VoucherID string `json:"voucher_id,omitempty"`
 	Message   string `json:"message"`
 	Timestamp string `json:"timestamp"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // ServeHTTP handles the HTTP request
@@ -62,49 +62,54 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 
 	if r.Method != http.MethodPost {
-		h.sendError(w, http.StatusMethodNotAllowed, "method not allowed")
+		h.sendErrorR(w, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	sourceIP := h.getSourceIP(r)
-	tokenUsed, authenticated := h.authenticate(ctx, r)
-	if !authenticated {
-		slog.Warn("voucher receiver: authentication failed", "source_ip", sourceIP)
-		h.sendError(w, http.StatusUnauthorized, "authentication required or invalid token")
+	tokenUsed, authResult := h.authenticate(ctx, r)
+	switch authResult {
+	case authNone:
+		slog.Warn("voucher receiver: no credentials provided", "source_ip", sourceIP)
+		h.sendErrorR(w, r, http.StatusUnauthorized, "authentication required")
+		return
+	case authInvalid:
+		slog.Warn("voucher receiver: invalid credentials", "source_ip", sourceIP)
+		h.sendErrorR(w, r, http.StatusForbidden, "invalid or expired token")
 		return
 	}
 
 	if err := r.ParseMultipartForm(maxVoucherSize); err != nil {
 		slog.Warn("voucher receiver: failed to parse multipart form", "error", err, "source_ip", sourceIP)
-		h.sendError(w, http.StatusBadRequest, "failed to parse multipart data")
+		h.sendErrorR(w, r, http.StatusBadRequest, "failed to parse multipart data")
 		return
 	}
 
 	file, header, err := r.FormFile("voucher")
 	if err != nil {
 		slog.Warn("voucher receiver: voucher file missing", "error", err, "source_ip", sourceIP)
-		h.sendError(w, http.StatusBadRequest, "voucher file missing")
+		h.sendErrorR(w, r, http.StatusBadRequest, "voucher file missing")
 		return
 	}
 	defer file.Close()
 
 	if header.Size > maxVoucherSize {
 		slog.Warn("voucher receiver: voucher file too large", "size", header.Size, "source_ip", sourceIP)
-		h.sendError(w, http.StatusRequestEntityTooLarge, "voucher file exceeds size limit")
+		h.sendErrorR(w, r, http.StatusRequestEntityTooLarge, "voucher file exceeds size limit")
 		return
 	}
 
 	voucherData, err := io.ReadAll(io.LimitReader(file, maxVoucherSize))
 	if err != nil {
 		slog.Error("voucher receiver: failed to read voucher file", "error", err, "source_ip", sourceIP)
-		h.sendError(w, http.StatusInternalServerError, "failed to read voucher file")
+		h.sendErrorR(w, r, http.StatusInternalServerError, "failed to read voucher file")
 		return
 	}
 
 	voucher, err := h.parseVoucher(voucherData)
 	if err != nil {
 		slog.Warn("voucher receiver: failed to parse voucher", "error", err, "source_ip", sourceIP)
-		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("invalid voucher format: %v", err))
+		h.sendErrorR(w, r, http.StatusBadRequest, fmt.Sprintf("invalid voucher format: %v", err))
 		return
 	}
 
@@ -132,13 +137,13 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	voucherPath := h.fileStore.FilePathForGUID(guidStr)
 	if _, err := os.Stat(voucherPath); err == nil {
 		slog.Warn("voucher receiver: voucher already exists", "guid", guidStr, "source_ip", sourceIP)
-		h.sendError(w, http.StatusConflict, "voucher already exists for this device")
+		h.sendErrorR(w, r, http.StatusConflict, "voucher already exists for this device")
 		return
 	}
 
 	if err := h.saveVoucher(voucherPath, voucherData); err != nil {
 		slog.Error("voucher receiver: failed to save voucher", "guid", guidStr, "error", err)
-		h.sendError(w, http.StatusInternalServerError, "failed to save voucher")
+		h.sendErrorR(w, r, http.StatusInternalServerError, "failed to save voucher")
 		return
 	}
 
@@ -163,39 +168,49 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	h.sendSuccess(w, guidStr, "Voucher accepted and stored")
 }
 
-// authenticate checks if the request is authenticated
-func (h *VoucherReceiverHandler) authenticate(ctx context.Context, r *http.Request) (string, bool) {
+// authResult represents the outcome of an authentication check.
+type authResult int
+
+const (
+	authOK      authResult = iota // credentials valid
+	authNone                      // no credentials provided
+	authInvalid                   // credentials provided but invalid
+)
+
+// authenticate checks if the request is authenticated.
+// Returns the token used (if any) and the authentication result.
+func (h *VoucherReceiverHandler) authenticate(ctx context.Context, r *http.Request) (string, authResult) {
 	if !h.config.VoucherReceiver.RequireAuth {
-		return "", true
+		return "", authOK
 	}
 
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		return "", false
+		return "", authNone
 	}
 
 	parts := strings.SplitN(authHeader, " ", 2)
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return "", false
+		return "", authInvalid
 	}
 
 	token := parts[1]
 
 	if h.config.VoucherReceiver.GlobalToken != "" && token == h.config.VoucherReceiver.GlobalToken {
-		return "global", true
+		return "global", authOK
 	}
 
 	valid, err := h.tokenManager.ValidateReceiverToken(ctx, token)
 	if err != nil {
 		slog.Error("voucher receiver: token validation error", "error", err)
-		return "", false
+		return "", authInvalid
 	}
 
 	if valid {
-		return token, true
+		return token, authOK
 	}
 
-	return "", false
+	return "", authInvalid
 }
 
 // getSourceIP extracts the source IP from the request
@@ -218,32 +233,7 @@ func (h *VoucherReceiverHandler) getSourceIP(r *http.Request) string {
 
 // parseVoucher parses a voucher from PEM or raw CBOR data
 func (h *VoucherReceiverHandler) parseVoucher(data []byte) (*fdo.Voucher, error) {
-	pemData := string(data)
-	if strings.Contains(pemData, "-----BEGIN OWNERSHIP VOUCHER-----") {
-		start := strings.Index(pemData, "-----BEGIN OWNERSHIP VOUCHER-----")
-		end := strings.Index(pemData, "-----END OWNERSHIP VOUCHER-----")
-		if start == -1 || end == -1 {
-			return nil, fmt.Errorf("invalid PEM format")
-		}
-
-		start += len("-----BEGIN OWNERSHIP VOUCHER-----")
-		base64Data := strings.TrimSpace(pemData[start:end])
-		base64Data = strings.ReplaceAll(base64Data, "\n", "")
-		base64Data = strings.ReplaceAll(base64Data, "\r", "")
-
-		cborData, err := base64.StdEncoding.DecodeString(base64Data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode base64: %w", err)
-		}
-		data = cborData
-	}
-
-	var voucher fdo.Voucher
-	if err := cbor.Unmarshal(data, &voucher); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal voucher: %w", err)
-	}
-
-	return &voucher, nil
+	return fdo.ParseVoucherString(string(data))
 }
 
 // saveVoucher saves the voucher to disk in PEM format
@@ -253,26 +243,17 @@ func (h *VoucherReceiverHandler) saveVoucher(path string, data []byte) error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
+	// If data is already PEM-wrapped, write it directly;
+	// otherwise wrap raw CBOR bytes in PEM format.
+	var pemData []byte
 	if strings.Contains(string(data), "-----BEGIN OWNERSHIP VOUCHER-----") {
-		return os.WriteFile(path, data, 0644)
+		pemData = data
+	} else {
+		pemData = fdo.FormatVoucherCBORToPEM(data)
 	}
-
-	base64Data := base64.StdEncoding.EncodeToString(data)
-
-	var pemBuilder strings.Builder
-	pemBuilder.WriteString("-----BEGIN OWNERSHIP VOUCHER-----\n")
-	for i := 0; i < len(base64Data); i += 64 {
-		end := i + 64
-		if end > len(base64Data) {
-			end = len(base64Data)
-		}
-		pemBuilder.WriteString(base64Data[i:end])
-		pemBuilder.WriteString("\n")
-	}
-	pemBuilder.WriteString("-----END OWNERSHIP VOUCHER-----\n")
 
 	tempPath := path + ".tmp"
-	if err := os.WriteFile(tempPath, []byte(pemBuilder.String()), 0644); err != nil {
+	if err := os.WriteFile(tempPath, pemData, 0644); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 
@@ -314,12 +295,13 @@ func extractOwnerKeyFingerprint(voucher *fdo.Voucher) string {
 	return FingerprintPublicKeyHex(ownerKey)
 }
 
-// sendError sends an error JSON response
-func (h *VoucherReceiverHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
+// sendErrorR sends an error JSON response with a request_id.
+func (h *VoucherReceiverHandler) sendErrorR(w http.ResponseWriter, r *http.Request, statusCode int, message string) {
 	resp := VoucherResponse{
 		Status:    "error",
 		Message:   message,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		RequestID: receiverRequestID(r),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -327,4 +309,19 @@ func (h *VoucherReceiverHandler) sendError(w http.ResponseWriter, statusCode int
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		slog.Error("failed to encode error response", "error", err)
 	}
+}
+
+// receiverRequestID returns the X-Request-ID header value if present,
+// otherwise generates a short random hex ID.
+func receiverRequestID(r *http.Request) string {
+	if r != nil {
+		if id := r.Header.Get("X-Request-ID"); id != "" {
+			return id
+		}
+	}
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "unknown"
+	}
+	return hex.EncodeToString(b)
 }

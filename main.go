@@ -238,7 +238,7 @@ func runServer() {
 
 	server := &http.Server{
 		Addr:    config.Server.Addr,
-		Handler: mux,
+		Handler: fdoVersionMiddleware(mux),
 	}
 
 	// Start retry worker
@@ -681,6 +681,15 @@ func generateVoucherCmd() {
 		}
 		fmt.Printf("Voucher generated and written to: %s\n", *output)
 	}
+}
+
+// fdoVersionMiddleware wraps an http.Handler and adds the X-FDO-Version
+// header to every response per spec §7.1.
+func fdoVersionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-FDO-Version", "1.0")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func openDatabase(path string) (*sql.DB, error) {

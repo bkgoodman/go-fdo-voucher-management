@@ -5,8 +5,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"os"
 	"time"
 )
@@ -104,23 +106,52 @@ func (s *VoucherPushService) AttemptRecord(ctx context.Context, rec *VoucherTran
 	start := time.Now()
 	err := s.client.Push(ctx, dest, rec.FilePath, rec.SerialNumber, rec.ModelNumber, rec.VoucherGUID)
 	if err != nil {
-		retryAfter := time.Now().UTC().Add(s.retryInterval())
-		status := transmissionStatusPending
-		if rec.Attempts >= s.maxAttempts() {
-			status = transmissionStatusFailed
-			retryAfter = time.Time{}
+		// Classify error: permanent 4xx (except 429) → fail immediately.
+		// Transient (5xx, 429, network) → retry with exponential backoff.
+		var pushErr *PushError
+		permanent := false
+		var serverRetryAfter time.Duration
+		if errors.As(err, &pushErr) {
+			permanent = !pushErr.IsTransient()
+			serverRetryAfter = pushErr.RetryAfter
 		}
+
+		status := transmissionStatusPending
+		retryAfter := time.Time{}
+		if permanent {
+			status = transmissionStatusFailed
+			slog.Warn("voucher transmission permanently failed (non-retryable HTTP status)",
+				"guid", rec.VoucherGUID,
+				"destination", rec.DestinationURL,
+				"attempts", rec.Attempts,
+				"error", err,
+			)
+		} else if rec.Attempts >= s.maxAttempts() {
+			status = transmissionStatusFailed
+		} else {
+			// Compute next retry time: exponential backoff with ±25% jitter,
+			// but honor Retry-After from the server if it's longer.
+			backoff := backoffDuration(rec.Attempts, s.retryInterval())
+			if serverRetryAfter > backoff {
+				backoff = serverRetryAfter
+			}
+			retryAfter = time.Now().UTC().Add(backoff)
+		}
+
 		if markErr := s.store.MarkAttempt(ctx, rec.ID, status, rec.Attempts, retryAfter, err.Error(), false); markErr != nil {
 			slog.Error("failed to update transmission after error", "guid", rec.VoucherGUID, "error", markErr)
 		}
-		slog.Warn("voucher transmission attempt failed",
-			"guid", rec.VoucherGUID,
-			"destination", rec.DestinationURL,
-			"attempts", rec.Attempts,
-			"status", status,
-			"duration", time.Since(start),
-			"error", err,
-		)
+		if !permanent {
+			slog.Warn("voucher transmission attempt failed",
+				"guid", rec.VoucherGUID,
+				"destination", rec.DestinationURL,
+				"attempts", rec.Attempts,
+				"status", status,
+				"retry_after", retryAfter,
+				"duration", time.Since(start),
+				"error", err,
+			)
+		}
 		if status == transmissionStatusFailed {
 			return fmt.Errorf("voucher push failed after %d attempts: %w", rec.Attempts, err)
 		}
@@ -168,4 +199,28 @@ func (s *VoucherPushService) maxAttempts() int {
 		return s.config.RetryWorker.MaxAttempts
 	}
 	return 5
+}
+
+// backoffDuration computes exponential backoff with ±25% jitter.
+// Base delay doubles each attempt: base, 2*base, 4*base, 8*base, ...
+// Capped at 24 hours.
+func backoffDuration(attempt int, base time.Duration) time.Duration {
+	if base <= 0 {
+		base = time.Minute
+	}
+	shift := attempt - 1
+	if shift < 0 {
+		shift = 0
+	}
+	if shift > 20 {
+		shift = 20
+	}
+	d := base * (1 << shift)
+	maxBackoff := 24 * time.Hour
+	if d > maxBackoff {
+		d = maxBackoff
+	}
+	// Apply ±25% jitter
+	jitter := float64(d) * 0.25 * (2*rand.Float64() - 1) //nolint:gosec // jitter doesn't need crypto rand
+	return d + time.Duration(jitter)
 }

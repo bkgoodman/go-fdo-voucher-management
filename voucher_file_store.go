@@ -4,14 +4,12 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/fido-device-onboard/go-fdo"
-	"github.com/fido-device-onboard/go-fdo/cbor"
 )
 
 // VoucherFileStore manages voucher artifacts saved to disk for later transmission
@@ -65,32 +63,14 @@ func (s *VoucherFileStore) SaveVoucher(ov *fdo.Voucher) (string, error) {
 		return "", fmt.Errorf("unable to derive voucher path for guid %s", guid)
 	}
 
-	contents, err := formatVoucherForDisk(ov)
+	contents, err := fdo.FormatVoucherPEM(ov)
 	if err != nil {
 		return "", fmt.Errorf("failed to format voucher for disk: %w", err)
 	}
 
-	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+	if err := os.WriteFile(path, contents, 0o644); err != nil {
 		return "", fmt.Errorf("failed to write voucher file %s: %w", path, err)
 	}
 
 	return path, nil
-}
-
-// formatVoucherForDisk formats the voucher in PEM format
-func formatVoucherForDisk(ov *fdo.Voucher) (string, error) {
-	voucherBytes, err := cbor.Marshal(ov)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal voucher: %w", err)
-	}
-
-	voucherBase64 := base64.StdEncoding.EncodeToString(voucherBytes)
-
-	var builder strings.Builder
-	builder.WriteString("-----BEGIN OWNERSHIP VOUCHER-----\n")
-	builder.WriteString(voucherBase64)
-	builder.WriteString("\n")
-	builder.WriteString("-----END OWNERSHIP VOUCHER-----\n")
-
-	return builder.String(), nil
 }

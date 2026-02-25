@@ -12,8 +12,50 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
+
+// PushError represents an HTTP error from a voucher push attempt.
+// It carries the status code and optional Retry-After duration so
+// callers can classify transient vs permanent failures.
+type PushError struct {
+	StatusCode int
+	Body       string
+	RetryAfter time.Duration // parsed from Retry-After header; zero if absent
+}
+
+func (e *PushError) Error() string {
+	return fmt.Sprintf("voucher push returned %d: %s", e.StatusCode, e.Body)
+}
+
+// IsTransient returns true for errors that are worth retrying:
+// 429 Too Many Requests, 5xx server errors, and network errors.
+// 4xx (except 429) are permanent — the request itself is wrong.
+func (e *PushError) IsTransient() bool {
+	if e.StatusCode == http.StatusTooManyRequests {
+		return true
+	}
+	return e.StatusCode >= 500
+}
+
+// parseRetryAfter parses the Retry-After header value.
+// Supports both seconds (integer) and HTTP-date formats.
+func parseRetryAfter(val string) time.Duration {
+	if val == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(val); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if t, err := http.ParseTime(val); err == nil {
+		d := time.Until(t)
+		if d > 0 {
+			return d
+		}
+	}
+	return 0
+}
 
 // VoucherPushClient handles HTTP uploads of vouchers to remote owners
 type VoucherPushClient struct {
@@ -78,7 +120,11 @@ func (c *VoucherPushClient) Push(ctx context.Context, dest *VoucherDestination, 
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("voucher push returned %d: %s", resp.StatusCode, string(respBody))
+		return &PushError{
+			StatusCode: resp.StatusCode,
+			Body:       string(respBody),
+			RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After")),
+		}
 	}
 
 	return nil

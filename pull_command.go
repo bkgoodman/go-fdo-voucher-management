@@ -265,7 +265,7 @@ func loadOrGenerateKey(keyFile, keyType string) crypto.Signer {
 	case "rsa2048":
 		keyCfg = did.KeyConfig{Type: "RSA", Bits: 2048}
 	}
-	result, err := did.Mint("localhost", "", "", keyCfg)
+	result, err := did.Mint("localhost", "", "", "", keyCfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error generating key: %v\n", err)
 		os.Exit(1)
