@@ -18,8 +18,11 @@ import (
 // Partner represents a trusted partner identity stored in the database.
 // Partners may be identified by DID URI, bare public key, or just a push URL.
 type Partner struct {
-	ID   string `json:"id"`   // human-readable label, e.g., "acme-mfg"
-	Role string `json:"role"` // "manufacturer", "peer", "customer"
+	ID string `json:"id"` // human-readable label, e.g., "acme-mfg"
+
+	// Capabilities — what this partner is authorized to do
+	CanSupplyVouchers  bool `json:"can_supply_vouchers"`  // we accept vouchers FROM this partner (upstream)
+	CanReceiveVouchers bool `json:"can_receive_vouchers"` // we push vouchers TO this partner (downstream)
 
 	// Identity
 	DIDURI    string `json:"did_uri,omitempty"`    // did:web:... or did:key:... (empty for bare-key/URL-only)
@@ -70,7 +73,8 @@ func (s *PartnerStore) Init(ctx context.Context) error {
 		did_document             TEXT,
 		did_document_fetched_at  INTEGER,
 		did_document_etag        TEXT,
-		role                     TEXT NOT NULL DEFAULT 'peer',
+		can_supply_vouchers      INTEGER NOT NULL DEFAULT 0,
+		can_receive_vouchers     INTEGER NOT NULL DEFAULT 0,
 		enabled                  INTEGER NOT NULL DEFAULT 1,
 		created_at               INTEGER NOT NULL,
 		updated_at               INTEGER NOT NULL
@@ -111,18 +115,22 @@ func (s *PartnerStore) Add(ctx context.Context, p *Partner) error {
 
 	_, err := s.db.ExecContext(ctx, `INSERT INTO partners
 		(id, did_uri, public_key, public_key_fingerprint, push_url, pull_url, auth_token,
-		 did_document, did_document_fetched_at, did_document_etag, role, enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 did_document, did_document_fetched_at, did_document_etag,
+		 can_supply_vouchers, can_receive_vouchers, enabled, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, nullStr(p.DIDURI), nullStr(p.PublicKey), nullStr(p.PublicKeyFingerprint),
 		nullStr(p.PushURL), nullStr(p.PullURL), nullStr(p.AuthToken),
 		nullStr(p.DIDDocument), nullInt(p.DIDDocumentFetchedAt), nullStr(p.DIDDocumentETag),
-		p.Role, boolToInt(p.Enabled), p.CreatedAt, p.UpdatedAt,
+		boolToInt(p.CanSupplyVouchers), boolToInt(p.CanReceiveVouchers),
+		boolToInt(p.Enabled), p.CreatedAt, p.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("partner store: failed to insert %q: %w", p.ID, err)
 	}
 
-	slog.Info("partner store: added partner", "id", p.ID, "role", p.Role, "did_uri", p.DIDURI, "has_key", p.PublicKey != "")
+	slog.Info("partner store: added partner", "id", p.ID,
+		"can_supply", p.CanSupplyVouchers, "can_receive", p.CanReceiveVouchers,
+		"did_uri", p.DIDURI, "has_key", p.PublicKey != "")
 	return nil
 }
 
@@ -130,7 +138,8 @@ func (s *PartnerStore) Add(ctx context.Context, p *Partner) error {
 func (s *PartnerStore) Get(ctx context.Context, id string) (*Partner, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT
 		id, did_uri, public_key, public_key_fingerprint, push_url, pull_url, auth_token,
-		did_document, did_document_fetched_at, did_document_etag, role, enabled, created_at, updated_at
+		did_document, did_document_fetched_at, did_document_etag,
+		can_supply_vouchers, can_receive_vouchers, enabled, created_at, updated_at
 		FROM partners WHERE id = ?`, id)
 	return scanPartner(row)
 }
@@ -139,7 +148,8 @@ func (s *PartnerStore) Get(ctx context.Context, id string) (*Partner, error) {
 func (s *PartnerStore) GetByDID(ctx context.Context, didURI string) (*Partner, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT
 		id, did_uri, public_key, public_key_fingerprint, push_url, pull_url, auth_token,
-		did_document, did_document_fetched_at, did_document_etag, role, enabled, created_at, updated_at
+		did_document, did_document_fetched_at, did_document_etag,
+		can_supply_vouchers, can_receive_vouchers, enabled, created_at, updated_at
 		FROM partners WHERE did_uri = ?`, didURI)
 	return scanPartner(row)
 }
@@ -149,7 +159,8 @@ func (s *PartnerStore) GetByDID(ctx context.Context, didURI string) (*Partner, e
 func (s *PartnerStore) GetByFingerprint(ctx context.Context, fingerprint string) (*Partner, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT
 		id, did_uri, public_key, public_key_fingerprint, push_url, pull_url, auth_token,
-		did_document, did_document_fetched_at, did_document_etag, role, enabled, created_at, updated_at
+		did_document, did_document_fetched_at, did_document_etag,
+		can_supply_vouchers, can_receive_vouchers, enabled, created_at, updated_at
 		FROM partners WHERE public_key_fingerprint = ? AND enabled = 1`, fingerprint)
 	return scanPartner(row)
 }
@@ -168,16 +179,24 @@ func (s *PartnerStore) GetByKeyFingerprint(ctx context.Context, pub crypto.Publi
 	return p, nil
 }
 
-// List returns all partners, optionally filtered by role.
-func (s *PartnerStore) List(ctx context.Context, role string) ([]*Partner, error) {
+// List returns all partners, optionally filtered by capability.
+// filter can be: "supply" (can_supply_vouchers=1), "receive" (can_receive_vouchers=1), or empty (all).
+func (s *PartnerStore) List(ctx context.Context, filter string) ([]*Partner, error) {
 	query := `SELECT
 		id, did_uri, public_key, public_key_fingerprint, push_url, pull_url, auth_token,
-		did_document, did_document_fetched_at, did_document_etag, role, enabled, created_at, updated_at
+		did_document, did_document_fetched_at, did_document_etag,
+		can_supply_vouchers, can_receive_vouchers, enabled, created_at, updated_at
 		FROM partners`
 	var args []interface{}
-	if role != "" {
-		query += " WHERE role = ?"
-		args = append(args, role)
+	switch filter {
+	case "supply":
+		query += " WHERE can_supply_vouchers = 1"
+	case "receive":
+		query += " WHERE can_receive_vouchers = 1"
+	case "":
+		// no filter
+	default:
+		return nil, fmt.Errorf("partner store: unknown filter %q (use supply, receive, or empty)", filter)
 	}
 	query += " ORDER BY id"
 
@@ -203,7 +222,8 @@ func (s *PartnerStore) List(ctx context.Context, role string) ([]*Partner, error
 func (s *PartnerStore) ListDIDWebPartners(ctx context.Context) ([]*Partner, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT
 		id, did_uri, public_key, public_key_fingerprint, push_url, pull_url, auth_token,
-		did_document, did_document_fetched_at, did_document_etag, role, enabled, created_at, updated_at
+		did_document, did_document_fetched_at, did_document_etag,
+		can_supply_vouchers, can_receive_vouchers, enabled, created_at, updated_at
 		FROM partners WHERE did_uri LIKE 'did:web:%' AND enabled = 1`)
 	if err != nil {
 		return nil, fmt.Errorf("partner store: list did:web partners failed: %w", err)
@@ -239,12 +259,13 @@ func (s *PartnerStore) Update(ctx context.Context, p *Partner) error {
 		did_uri = ?, public_key = ?, public_key_fingerprint = ?,
 		push_url = ?, pull_url = ?, auth_token = ?,
 		did_document = ?, did_document_fetched_at = ?, did_document_etag = ?,
-		role = ?, enabled = ?, updated_at = ?
+		can_supply_vouchers = ?, can_receive_vouchers = ?, enabled = ?, updated_at = ?
 		WHERE id = ?`,
 		nullStr(p.DIDURI), nullStr(p.PublicKey), nullStr(p.PublicKeyFingerprint),
 		nullStr(p.PushURL), nullStr(p.PullURL), nullStr(p.AuthToken),
 		nullStr(p.DIDDocument), nullInt(p.DIDDocumentFetchedAt), nullStr(p.DIDDocumentETag),
-		p.Role, boolToInt(p.Enabled), p.UpdatedAt,
+		boolToInt(p.CanSupplyVouchers), boolToInt(p.CanReceiveVouchers),
+		boolToInt(p.Enabled), p.UpdatedAt,
 		p.ID,
 	)
 	if err != nil {
@@ -298,11 +319,16 @@ func (s *PartnerStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// IsTrustedKey checks whether the given public key belongs to an enabled partner.
+// IsTrustedSupplier checks whether the given public key belongs to an enabled
+// partner that is authorized to supply vouchers (upstream manufacturer/peer).
 // Returns the partner ID if trusted, or empty string if not.
-func (s *PartnerStore) IsTrustedKey(ctx context.Context, pub crypto.PublicKey) (string, bool) {
+func (s *PartnerStore) IsTrustedSupplier(ctx context.Context, pub crypto.PublicKey) (string, bool) {
 	p, err := s.GetByKeyFingerprint(ctx, pub)
 	if err != nil || p == nil {
+		return "", false
+	}
+	if !p.CanSupplyVouchers {
+		slog.Debug("partner store: key matched but partner lacks can_supply_vouchers", "id", p.ID)
 		return "", false
 	}
 	return p.ID, true
@@ -325,11 +351,12 @@ func scanPartner(row *sql.Row) (*Partner, error) {
 	var didURI, publicKey, fingerprint, pushURL, pullURL, authToken sql.NullString
 	var didDoc, didETag sql.NullString
 	var didDocFetchedAt sql.NullInt64
-	var enabled int
+	var canSupply, canReceive, enabled int
 
 	err := row.Scan(
 		&p.ID, &didURI, &publicKey, &fingerprint, &pushURL, &pullURL, &authToken,
-		&didDoc, &didDocFetchedAt, &didETag, &p.Role, &enabled, &p.CreatedAt, &p.UpdatedAt,
+		&didDoc, &didDocFetchedAt, &didETag,
+		&canSupply, &canReceive, &enabled, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -344,6 +371,8 @@ func scanPartner(row *sql.Row) (*Partner, error) {
 	p.DIDDocument = didDoc.String
 	p.DIDDocumentFetchedAt = didDocFetchedAt.Int64
 	p.DIDDocumentETag = didETag.String
+	p.CanSupplyVouchers = canSupply != 0
+	p.CanReceiveVouchers = canReceive != 0
 	p.Enabled = enabled != 0
 
 	return &p, nil
@@ -355,11 +384,12 @@ func scanPartnerRow(rows *sql.Rows) (*Partner, error) {
 	var didURI, publicKey, fingerprint, pushURL, pullURL, authToken sql.NullString
 	var didDoc, didETag sql.NullString
 	var didDocFetchedAt sql.NullInt64
-	var enabled int
+	var canSupply, canReceive, enabled int
 
 	err := rows.Scan(
 		&p.ID, &didURI, &publicKey, &fingerprint, &pushURL, &pullURL, &authToken,
-		&didDoc, &didDocFetchedAt, &didETag, &p.Role, &enabled, &p.CreatedAt, &p.UpdatedAt,
+		&didDoc, &didDocFetchedAt, &didETag,
+		&canSupply, &canReceive, &enabled, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -374,6 +404,8 @@ func scanPartnerRow(rows *sql.Rows) (*Partner, error) {
 	p.DIDDocument = didDoc.String
 	p.DIDDocumentFetchedAt = didDocFetchedAt.Int64
 	p.DIDDocumentETag = didETag.String
+	p.CanSupplyVouchers = canSupply != 0
+	p.CanReceiveVouchers = canReceive != 0
 	p.Enabled = enabled != 0
 
 	return &p, nil

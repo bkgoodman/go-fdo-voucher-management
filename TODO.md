@@ -22,7 +22,7 @@ Gap analysis comparing `fdo-appnote-voucher-transfer.bs` specification against t
 | 14 | Security Considerations |
 | 15 | Implementation Guidelines |
 
-**Legend:** ✅ Implemented | ⚠️ Partial / Deviation | ❌ Not Implemented | 📋 Spec-optional (MAY/SHOULD)
+**Legend:** ✅ Implemented | ⚠️ Partial / Deviation | ❌ Not Implemented (MUST/SHOULD, security-relevant) | � Not Implemented (MAY, defense-in-depth, nice-to-have) | � Spec-optional (noted for awareness)
 
 **Security model note:** The spec's core security model is DID-based mutual authentication (§12). Token-based auth, mTLS, and business logic validation are **defense-in-depth layers** (§10, §12.7) — additive, not required. Items in this TODO are prioritized accordingly.
 
@@ -43,26 +43,26 @@ Gap analysis comparing `fdo-appnote-voucher-transfer.bs` specification against t
 - ✅ `multipart/form-data` with `voucher` file field
 - ✅ Optional `serial`, `model` form fields
 - ⚠️ **`manufacturer` field**: Spec defines `manufacturer` as an optional form field. Implementation reads it from `r.FormValue("manufacturer")` and logs it, but does not persist it in the transmission record (`VoucherTransmissionRecord` has no `Manufacturer` field).
-- ❌ **`timestamp` form field**: Spec defines optional `timestamp` (ISO 8601) form field. Not read or used.
-- ❌ **`X-FDO-Version` header**: Spec RECOMMENDS sending/checking protocol version header. Not implemented.
-- ❌ **`X-FDO-Client-ID` header**: Spec defines optional client identifier header. Not implemented.
+- 🔲 **`timestamp` form field**: Spec defines optional `timestamp` (ISO 8601) form field. Not read or used.
+- ✅ **`X-FDO-Version` header**: Spec RECOMMENDS sending/checking protocol version header. Server sends `X-FDO-Version: 1.0` on all responses via `fdoVersionMiddleware()` in `main.go`.
+- 🔲 **`X-FDO-Client-ID` header**: Spec defines optional client identifier header. Not implemented.
 - ✅ `200 OK` with JSON response body containing `status`, `voucher_id`, `message`, `timestamp`
-- ❌ **`202 Accepted`**: Spec defines async acceptance. Implementation always returns `200 OK` synchronously (pipeline runs async in goroutine but response is immediate `200`). Consider returning `202` when pipeline is async.
+- 🔲 **`202 Accepted`**: Spec defines async acceptance. Implementation always returns `200 OK` synchronously (pipeline runs async in goroutine but response is immediate `200`). Consider returning `202` when pipeline is async.
 - ✅ `400 Bad Request` for invalid format
 - ✅ `401 Unauthorized` for auth failure
 - ✅ `409 Conflict` for duplicate voucher (checked via file existence)
 - ✅ `413 Payload Too Large` for oversized files
 - ✅ **`401` vs `403`**: 401 for missing credentials, 403 for invalid/expired token. Auth returns a three-state result (`authOK`, `authNone`, `authInvalid`).
-- ❌ **`429 Too Many Requests`**: No rate limiting implemented.
-- ❌ **`503 Service Unavailable`**: No explicit handling.
+- 🔲 **`429 Too Many Requests`**: No rate limiting implemented. Defense-in-depth; typically handled by API gateways.
+- 🔲 **`503 Service Unavailable`**: No explicit handling.
 
 ## 3. Push API — GET {root}/status/{identifier} (Spec §7.2)
 
 Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher scenarios (e.g., a device arrives but has no voucher — was it never sent, lost, or failed?). The `{identifier}` can be either a voucher GUID or device serial number.
 
-- ❌ **Not implemented.** The transmission store has the data, but no HTTP handler exposes it.
-- ❌ **GUID lookup**: Not implemented. DB has `voucher_id` (GUID) column, so this is straightforward.
-- ❌ **Serial number lookup**: Not implemented. DB has serial number in transmission records.
+- 🔲 **Not implemented.** The transmission store has the data, but no HTTP handler exposes it.
+- 🔲 **GUID lookup**: Not implemented. DB has `voucher_id` (GUID) column, so this is straightforward.
+- 🔲 **Serial number lookup**: Not implemented. DB has serial number in transmission records.
 - 📋 Spec says RECOMMENDED, not REQUIRED. Implementations that don't support it SHOULD return `501 Not Implemented`.
 
 ## 5. Pull API — GET {root} (Spec §8.1)
@@ -76,7 +76,7 @@ Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher 
 - 📋 `status` query parameter: Parsed by `pull_holder.go:parseListFilter()` but not actually filtered in `voucher_pull_store.go:List()` — the filter is passed through but `Status` field is ignored in the query.
 - ✅ **Response fields**: Spec now defines only `voucher_id` as REQUIRED; all other fields (`serial`, `model`, `manufacturer_id`, `status`, `created_at`, `size_bytes`, `checksum`) are OPTIONAL. Implementation returns `guid`, `serial_number`, `model_number`, `device_info`, `created_at` — this is compliant since missing fields are allowed.
 - ✅ **`total_count`**: Spec now defines this as OPTIONAL (may be expensive to compute). Implementation returns per-page count, which is acceptable — but could also omit it entirely.
-- ❌ **`fields` query parameter**: Spec defines optional field selection (`fields=voucher_id,serial,created_at`) to let clients reduce response size. Not implemented.
+- ✅ **`fields` query parameter**: Spec defines optional field selection (`fields=voucher_id,serial,created_at`). Implemented in `pull_holder.go:parseListFilter()` — unrequested optional fields are zeroed so `omitempty` drops them.
 - ✅ `continuation` and `has_more` in response
 - ⚠️ **Continuation token security (Spec §8.5)**: Continuation tokens are plaintext RFC3339 timestamps — not cryptographically bound to session, not MAC'd, no expiry enforcement, trivially forgeable. Spec SHOULD requires cryptographic binding.
 - ✅ **Pagination signals**: `continuation` and `has_more` implemented. Spec now clarifies that `has_more` is the authoritative signal — `total_count` is optional.
@@ -92,8 +92,8 @@ Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher 
 
 ## 7. Pull API — Subscription / Notification (Spec §8.3–8.4)
 
-- ❌ **Long-polling** (`GET {root}/subscribe`): Not implemented.
-- ❌ **Server-Sent Events** (`GET {root}/stream`): Not implemented.
+- 🔲 **Long-polling** (`GET {root}/subscribe`): Not implemented.
+- 🔲 **Server-Sent Events** (`GET {root}/stream`): Not implemented.
 - 📋 These are spec-defined but lower priority for initial implementation.
 
 ## 8. PullAuth Protocol (Spec §9)
@@ -121,7 +121,7 @@ Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher 
 - ✅ Hash continuity (SHA-256 of Hello CBOR bytes)
 - ✅ COSE_Sign1 HolderSignature with correct payload structure including `"PullAuth.Challenge"` type tag
 - ✅ HolderInfo (optional, includes `voucher_count`)
-- ⚠️ **HolderInfo structure**: Spec defines it as a CBOR map with optional keys `"holder_id"`, `"voucher_count"`, `"algorithms"`. Implementation encodes it as a CBOR array `[holder_id, voucher_count, algorithms]`. This is a wire format deviation — a compliant parser expecting a map would fail to decode.
+- ✅ **HolderInfo structure**: Spec defines it as a CBOR map with optional keys `"holder_id"`, `"voucher_count"`, `"algorithms"`. Fixed: custom `MarshalCBOR`/`UnmarshalCBOR` methods encode as CBOR map with text string keys.
 
 ### 8.4 PullAuth.Prove (Spec §9.5)
 
@@ -138,7 +138,7 @@ Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher 
 - ✅ `Status = "authenticated"`
 - ✅ `SessionToken` as tstr for Bearer header use
 - ✅ `TokenExpiresAt` as Unix timestamp
-- ⚠️ **OwnerKeyFingerprint mismatch**: Spec says "SHA-256 hash of the CBOR-encoded authenticated Owner Key". Server (`pullauth_server.go:282`) computes `sha256.Sum256(ownerKeyBytes)` where `ownerKeyBytes` is `cbor.Marshal(session.OwnerKey)` — this is SHA-256 of the CBOR-encoded `protocol.PublicKey`, which matches the spec. However, the token store (`pull_service_setup.go:96`) and DB fingerprinting (`key_utils.go:26`) use `x509.MarshalPKIXPublicKey() → SHA-256` (DER-based). **These are two different fingerprinting algorithms.** The Result's fingerprint won't match what the token store uses for scoping. Functionally it works because the Result fingerprint is informational and the token carries its own fingerprint, but it's a semantic inconsistency.
+- ✅ **OwnerKeyFingerprint**: Spec says "SHA-256 hash of the CBOR-encoded authenticated Owner Key". All three locations (PullAuth server, token store, DB fingerprinting) now use CBOR-based SHA-256 via `FingerprintProtocolKey()` / `FingerprintPublicKey()` in `key_utils.go`. Aligned.
 - ✅ `VoucherCount` (optional)
 
 ### 8.6 Holder Signature Verification by Recipient (Spec §9.8.3)
@@ -169,20 +169,20 @@ The spec's §10 (Security Framework) describes defense-in-depth layers that are 
 ### 9.1 Core Protocol Authentication (REQUIRED)
 
 - ✅ Owner-Key-Based Authentication for pull (PullAuth, §9) — Model 5
-- ⚠️ **Voucher signature verification against manufacturer DID keys**: Spec §12.2 Case 2 defines this as the primary push authentication mechanism — verifying that the voucher was signed by a key belonging to an enrolled manufacturer's DID. Implementation accepts vouchers based on bearer token auth, not cryptographic signature verification against manufacturer DID keys. **This is the most significant gap for the DID-based security model.**
+- ✅ **Voucher signature verification against manufacturer DID keys**: Spec §12.2 Case 2. Fully implemented: `PartnerStore` with trust DB and capability-scoped authorization (`can_supply_vouchers`/`can_receive_vouchers`), `IsTrustedSupplier()` verification in receiver handler (supply-only), `did:key` resolution (P-256/P-384), DID document refresh worker, partner CLI commands (`add/list/show/remove/export` with `-supply`/`-receive` flags), config-file bootstrap (`partners:` section), multi-partner destination resolution via fingerprint lookup (receive-only).
 - ✅ Token-based (Bearer) authentication for push — works as defense-in-depth layer
 
 ### 9.2 Defense-in-Depth Layers (OPTIONAL per §12.7)
 
-- 📋 **JWT support**: Spec describes JWT format with scoped claims (`scope`, `limits`, etc.) as a defense-in-depth option. Implementation uses opaque bearer tokens (database-stored strings), not JWT. Adequate for current needs.
-- 📋 **mTLS support**: Defense-in-depth layer, not core. Not implemented.
-- 📋 **API key support**: Not as a separate mechanism — only opaque bearer tokens.
+- � **JWT support**: Spec describes JWT format with scoped claims (`scope`, `limits`, etc.) as a defense-in-depth option. Implementation uses opaque bearer tokens (database-stored strings), not JWT. Adequate for current needs.
+- � **mTLS support**: Defense-in-depth layer, not core. Not implemented.
+- � **API key support**: Not as a separate mechanism — only opaque bearer tokens.
 
 ### 9.3 Transport Security
 
 - ⚠️ **TLS**: Config has `use_tls` flag but `runServer()` always calls `ListenAndServe()`, never `ListenAndServeTLS()`. TLS is not actually implemented at the server level (assumed to be handled by reverse proxy).
-- 📋 **HSTS headers**: Not set. Typical for reverse-proxy deployments.
-- ❌ **Certificate validation enforcement**: No TLS certificate validation code in the push client.
+- � **HSTS headers**: Not set. Typical for reverse-proxy deployments.
+- 🔲 **Certificate validation enforcement**: No TLS certificate validation code in the push client. Go's `net/http` validates TLS certs by default; this would be about custom CA pinning.
 
 ### 9.4 Rate Limiting (Spec §10.6)
 
@@ -190,7 +190,7 @@ The spec's §10 (Security Framework) describes defense-in-depth layers that are 
 
 ### 9.5 Error Response Format (Spec §10.2)
 
-- ⚠️ **Error format**: Spec defines structured error with `error`, `message`, `error_code`, `timestamp`, `request_id`. Implementation returns simpler `{"status":"error","message":"...","timestamp":"..."}`. Missing `error_code` and `request_id`.
+- ⚠️ **Error format**: Spec defines structured error with `error`, `message`, `error_code`, `timestamp`, `request_id`. PullAuth and Pull API errors include `request_id`. Push receiver errors include `request_id` and `timestamp`. Still missing: `error_code` field across all error responses.
 
 ### 9.6 Security Monitoring (Spec §10.7)
 
@@ -198,7 +198,7 @@ The spec's §10 (Security Framework) describes defense-in-depth layers that are 
 
 ## 10. Voucher Sequestering (Spec §11)
 
-- ❌ **Not implemented.** Spec defines a quarantine/sequestering workflow with risk-based assessment, approval gates, and configurable quarantine durations. Implementation immediately accepts and processes vouchers.
+- 🔲 **Not implemented.** Spec defines a quarantine/sequestering workflow with risk-based assessment, approval gates, and configurable quarantine durations. Implementation immediately accepts and processes vouchers. This is a business-logic feature, not a protocol security requirement.
 
 ## 11. DID Integration (Spec §12) — Core Security Model
 
@@ -217,7 +217,7 @@ This is the **primary security model** for the protocol. Mutual DID exchange is 
 ### 11.3 DID-Based Security Model (Spec §12.2)
 
 - ✅ **Spec complete**: Four trust cases documented (push→recipient, push←provider, pull←holder, pull→recipient).
-- ⚠️ **Case 2 (push←provider) not implemented**: Voucher signature verification against enrolled manufacturer DID keys is the spec's primary push authentication mechanism. Implementation relies on bearer tokens instead. See §9.1 above.
+- ✅ **Case 2 (push←provider) implemented**: Voucher manufacturer key verification via `PartnerStore` + `IsTrustedSupplier()` in receiver handler (enforces `can_supply_vouchers`). `RequireTrustedManufacturer` config flag controls enforcement. Partner CLI commands with capability flags + config-file bootstrap for enrollment. Multi-partner destination resolution via fingerprint lookup (enforces `can_receive_vouchers`).
 
 ### 11.4 FDO JSON-LD Context (Spec §12.4)
 
@@ -237,18 +237,18 @@ This is the **primary security model** for the protocol. Mutual DID exchange is 
 
 ### 11.7 Defense-in-Depth Extension (Spec §12.7)
 
-- ⚠️ **DID Document `fido-device-onboarding` extension**: Spec defines a simplified informational extension with `additionalAuthentication` and `trusted_manufacturers`. Implementation uses the simpler `fido-device-onboard` service type (via go-fdo's `did.Document`). Not the full spec extension.
+- 🔲 **DID Document `fido-device-onboarding` extension**: Spec defines a simplified informational extension with `additionalAuthentication` and `trusted_manufacturers`. Implementation uses the simpler `fido-device-onboard` service type (via go-fdo's `did.Document`). Not the full spec extension. This is an informational/defense-in-depth extension (§12.7), not required for core security.
 
 ### 11.8 Other DID Methods
 
-- ❌ **`did:key` resolution**: `did_resolver.go:53` returns "not yet implemented".
+- ✅ **`did:key` resolution**: Fully implemented in `did_resolver.go` via `parseDIDKey()`. Supports P-256 (`0x8024`) and P-384 (`0x8124`) multicodec prefixes with base58-btc decoding and EC point decompression.
 
 ## 12. Error Handling and Retry Logic (Spec §13)
 
 - ✅ Retry with configurable max attempts (default 5)
 - ✅ **Backoff strategy**: Exponential backoff with ±25% jitter. Base delay doubles each attempt, capped at 24h. Honors server `Retry-After` header if longer than computed backoff.
-- ❌ **Circuit breaker**: Spec requires temporarily stopping sends to consistently failing endpoints. Not implemented.
-- ❌ **Dead letter queue**: Spec SHOULD for failed transfers stored for manual review. Failed records stay in DB with `failed` status but there's no explicit dead letter / alerting mechanism.
+- 🔲 **Circuit breaker**: Spec SHOULD temporarily stop sends to consistently failing endpoints. Not implemented.
+- 🔲 **Dead letter queue**: Spec SHOULD store failed transfers for manual review. Failed records stay in DB with `failed` status but there's no explicit dead letter / alerting mechanism.
 - ✅ **`Retry-After` header handling**: `PushError` captures `Retry-After` from HTTP response. `AttemptRecord` uses it as minimum wait if longer than exponential backoff.
 - ✅ **Error classification**: `PushError.IsTransient()` classifies 429 and 5xx as transient (retry), 4xx as permanent (fail immediately). Network errors default to transient.
 
@@ -273,7 +273,7 @@ This is the **primary security model** for the protocol. Mutual DID exchange is 
 
 These are gaps in the spec's **core** security model (§12) — the mechanisms that are REQUIRED for secure voucher transfer.
 
-- [~] **Voucher signature verification against manufacturer DID keys** (§12.2 Case 2) — PartnerStore with trust DB, `did:key` resolution, manufacturer key verification on receive, DID doc refresh worker. Remaining: partner CLI, config bootstrap, multi-partner destination resolution.
+- [x] **Voucher signature verification against manufacturer DID keys** (§12.2 Case 2) — PartnerStore with capability-scoped trust DB (`can_supply_vouchers`/`can_receive_vouchers`), `did:key` resolution, `IsTrustedSupplier()` on receive, DID doc refresh worker, partner CLI with `-supply`/`-receive` flags, config-file bootstrap, multi-partner destination resolution (receive-only) via fingerprint.
 - [x] **Emit `FDOVoucherHolder` DID service entry** — Wired into `NewDocument()`, `Mint()`, and `did_minting_setup.go` with auto-construction from pull service config.
 - [x] Return `application/x-fdo-voucher` Content-Type on voucher downloads (§8.2, §15)
 - [x] Add `Content-Disposition` header on voucher downloads (§8.2)
@@ -324,74 +324,20 @@ These are defense-in-depth layers (§12.7), optional spec features, or future en
 
 ## Quick Wins Action Plan
 
-Mechanical, low-risk changes grouped into batches. Each batch can be done in one pass, tested, and committed. Estimated effort per item is in parentheses.
+All original quick-win batches have been completed ✅:
 
-### Batch 1: Download Response Headers (~30 min total)
+- ~~**Batch 1**: Download Response Headers~~ — Content-Type, Content-Disposition, X-FDO-Checksum, Content-Length
+- ~~**Batch 2**: PullAuth Content-Type Validation~~ — 415 for wrong Content-Type
+- ~~**Batch 3**: FDOVoucherHolder DID Service Entry~~ — wired into NewDocument(), Mint(), did_minting_setup.go
+- ~~**Batch 4**: Error Response Cleanup~~ — request_id in all errors, 401 vs 403 distinction
+- ~~**Batch 5**: Retry Logic Hardening~~ — exponential backoff, jitter, Retry-After, transient/permanent classification
+- ~~**Batch 6**: tlsCertificateAuthority Struct Field~~ — added to Service struct
 
-All in `go-fdo/transfer/pull_holder.go` `HandleDownloadVoucher()`:
+### Remaining Work (needs design)
 
-1. **Content-Type** → change `ContentTypeCBOR` to `"application/x-fdo-voucher"` (1 line)
-2. **Content-Disposition** → add `w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.fdoov\"", guid))` (1 line)
-3. **X-FDO-Checksum** → compute `sha256.Sum256(data.Raw)` and set `w.Header().Set("X-FDO-Checksum", "sha256:"+hex.EncodeToString(hash[:)))` (3 lines)
-4. **Content-Length** → add `w.Header().Set("Content-Length", strconv.Itoa(len(data.Raw)))` (1 line)
-
-Test: `go test ./transfer/...` + e2e pull test
-
-### Batch 2: PullAuth Content-Type Validation (~15 min)
-
-In `go-fdo/transfer/pullauth_server.go`, add a check at the top of `HandleHello()` and `HandleProve()`:
-
-```go
-if ct := r.Header.Get("Content-Type"); ct != "" && ct != ContentTypeCBOR {
-    s.writeError(w, http.StatusUnsupportedMediaType, "expected Content-Type: application/cbor")
-    return
-}
-```
-
-Note: check `ct != ""` to be lenient with clients that omit it, but reject wrong values. (~4 lines × 2 handlers)
-
-Test: `go test ./transfer/...`
-
-### Batch 3: FDOVoucherHolder DID Service Entry (~20 min)
-
-1. **`did/document.go`**: Add `voucherHolderURL string` param to `NewDocument()`. If non-empty, append a second `Service` entry with type `FDOVoucherHolderServiceType`. (~8 lines)
-2. **`did_minting_setup.go`** (outer project): Pass the pull service URL to `NewDocument()`. (~2 lines)
-3. **`did/document_test.go`**: Add test case for holder service entry. (~10 lines)
-
-Test: `go test ./did/...` + e2e DID push-pull test
-
-### Batch 4: Error Response Cleanup (~20 min)
-
-1. **`request_id`**: Generate a UUID or use `r.Header.Get("X-Request-ID")` (echo client's, or generate). Add to all JSON error responses. Define a small helper. (~15 lines in `pull_holder.go` + `pullauth_server.go`)
-2. **401 vs 403**: In `voucher_receiver_handler.go`, after token validation succeeds, if authorization check fails (e.g., wrong scope), return 403 instead of 401. (~5 lines)
-
-Test: `go test ./transfer/...` + e2e push test
-
-### Batch 5: Retry Logic Hardening (~30 min)
-
-In `voucher_retry_worker.go`:
-
-1. **Transient vs permanent**: After HTTP call, check status code. 4xx (except 429) → mark `failed` immediately, don't retry. 5xx/429/network error → retry. (~10 lines)
-2. **Exponential backoff**: Replace fixed `retryInterval` with `baseInterval * 2^attempt` capped at `maxInterval`, plus ±25% jitter. (~15 lines)
-3. **Retry-After**: Check `resp.Header.Get("Retry-After")` and use it as minimum wait. (~5 lines)
-
-Test: unit test for backoff calculation + e2e push-retry test
-
-### Batch 6: tlsCertificateAuthority Struct Field (~10 min)
-
-In `go-fdo/did/document.go`:
-
-1. Add `TLSCertificateAuthority string \`json:"tlsCertificateAuthority,omitempty"\`` to `Service` struct. (1 line)
-2. No behavior change needed — just makes the field available for future use and for DID document generation/parsing.
-
-Test: `go test ./did/...`
-
-### Not Quick Wins (need design work)
-
-These require more thought and should NOT be batched:
-
-- ~~**Voucher signature verification against manufacturer DID keys**~~ — IN PROGRESS: `PartnerStore` (SQLite `partners` table) with CRUD, `did:key` resolution (P-256/P-384), manufacturer key verification in receiver handler, DID document refresh worker. Still need: partner CLI commands, config bootstrap, multi-partner destination resolution.
-- ~~**HolderInfo CBOR map vs array**~~ — DONE: custom MarshalCBOR/UnmarshalCBOR encode as CBOR map
-- ~~**OwnerKeyFingerprint algorithm alignment**~~ — DONE: all locations now use CBOR-based SHA-256
-- **Cryptographic continuation tokens** — needs HMAC key management, token format design
-- ~~**HolderSignature verification in client**~~ — DONE: `PullAuthClient.HolderPublicKey` field, full COSE_Sign1 + payload verification, CLI `-holder-key` flag, 3 unit tests (P-256, P-384, wrong key)
+- ~~⚠️ **Partner CLI commands + config bootstrap**~~ — DONE: `partners add/list/show/remove/export` CLI with capability flags (`-supply`, `-receive`). Config bootstrap via `partners:` section (`can_supply`/`can_receive` fields). DID resolution on add.
+- ~~⚠️ **Multi-partner destination resolution**~~ — DONE: `VoucherDestinationResolver` queries `PartnerStore` by owner key fingerprint. Only `can_receive_vouchers` partners are routed to. Only `can_supply_vouchers` partners are trusted as voucher sources (`IsTrustedSupplier`). Priority: callback → partner → DID → static.
+- ❌ **Cryptographic continuation tokens** — needs HMAC key management, token format design (§8.5 SHOULD)
+- 🔲 **`error_code` in error responses** — all errors have `request_id` but still missing `error_code` field
+- 🔲 **`status` filter in pull list query** — parsed but not applied in DB query
+- 🔲 **`manufacturer` field persistence** — logged but not stored in VoucherTransmissionRecord

@@ -134,7 +134,7 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 			h.sendErrorR(w, r, http.StatusBadRequest, "failed to extract manufacturer key from voucher")
 			return
 		}
-		partnerID, trusted := h.partnerStore.IsTrustedKey(ctx, mfgKey)
+		partnerID, trusted := h.partnerStore.IsTrustedSupplier(ctx, mfgKey)
 		if trusted {
 			trustedPartner = partnerID
 			slog.Info("voucher receiver: manufacturer key verified", "partner", partnerID, "source_ip", sourceIP)

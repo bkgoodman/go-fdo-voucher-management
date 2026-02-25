@@ -129,6 +129,9 @@ type Config struct {
 		RevealVoucherExistence bool          `yaml:"reveal_voucher_existence"`
 	} `yaml:"pull_service"`
 
+	// Partners bootstrap configuration (loaded on startup)
+	Partners []PartnerConfig `yaml:"partners"`
+
 	// DID minting configuration
 	DIDMinting struct {
 		Enabled             bool   `yaml:"enabled"`
@@ -140,6 +143,19 @@ type Config struct {
 		ExportDIDURI        bool   `yaml:"export_did_uri"`        // Log the did:web URI on startup
 		KeyExportPath       string `yaml:"key_export_path"`       // Save DID-minted private key to PEM file (for pull command)
 	} `yaml:"did_minting"`
+}
+
+// PartnerConfig defines a partner entry in the config file for bootstrap enrollment.
+type PartnerConfig struct {
+	ID         string `yaml:"id"`
+	CanSupply  *bool  `yaml:"can_supply"`  // partner can supply vouchers to us (upstream)
+	CanReceive *bool  `yaml:"can_receive"` // we push vouchers to this partner (downstream)
+	DID        string `yaml:"did"`
+	KeyFile    string `yaml:"key_file"`
+	PushURL    string `yaml:"push_url"`
+	PullURL    string `yaml:"pull_url"`
+	AuthToken  string `yaml:"auth_token"`
+	Enabled    *bool  `yaml:"enabled"` // pointer so we can detect omission vs explicit false
 }
 
 // DefaultConfig returns configuration with sensible defaults

@@ -126,7 +126,7 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 
 	// Step 4: Resolve destination if push is configured
 	if p.pushService != nil && p.pushService.Enabled() {
-		dest, err := p.destinationResolver.ResolveDestination(ctx, serial, model, guid, didURL)
+		dest, err := p.destinationResolver.ResolveDestination(ctx, serial, model, guid, didURL, ownerKeyFingerprint)
 		if err != nil {
 			slog.Warn("pipeline: failed to resolve destination", "guid", guid, "error", err)
 			// Store with no destination - will be handled later

@@ -40,7 +40,7 @@ func (s *VoucherPushService) Enabled() bool {
 }
 
 // ProcessVoucher resolves a destination, records a transmission row, and performs an initial push attempt
-func (s *VoucherPushService) ProcessVoucher(ctx context.Context, serial, model, guid, filePath, didURL string) error {
+func (s *VoucherPushService) ProcessVoucher(ctx context.Context, serial, model, guid, filePath, didURL, ownerKeyFingerprint string) error {
 	if !s.Enabled() {
 		return nil
 	}
@@ -48,7 +48,7 @@ func (s *VoucherPushService) ProcessVoucher(ctx context.Context, serial, model, 
 		return fmt.Errorf("voucher push service is not fully configured")
 	}
 
-	dest, err := s.resolver.ResolveDestination(ctx, serial, model, guid, didURL)
+	dest, err := s.resolver.ResolveDestination(ctx, serial, model, guid, didURL, ownerKeyFingerprint)
 	if err != nil {
 		return fmt.Errorf("failed to resolve voucher destination: %w", err)
 	}

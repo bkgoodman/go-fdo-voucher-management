@@ -43,6 +43,8 @@ func main() {
 		runPullAuthCommand()
 	case "pull":
 		runPullCommand()
+	case "partners":
+		runPartnersCommand()
 	case "help":
 		printUsage()
 	default:
@@ -61,12 +63,14 @@ Usage:
   fdo-voucher-manager tokens [command] [options]
   fdo-voucher-manager pullauth [options]
   fdo-voucher-manager pull [options]
+  fdo-voucher-manager partners [command] [options]
   fdo-voucher-manager help
 
 Subcommands:
   server              Start the HTTP server for receiving vouchers
   vouchers            Manage vouchers (list, show, retry)
   tokens              Manage receiver authentication tokens
+  partners            Manage trusted partner identities (add, list, show, remove, export)
   pullauth            Perform PullAuth handshake only (authentication test)
   pull                Authenticate, list, and download vouchers from a Holder
   help                Show this help message
@@ -174,6 +178,11 @@ func runServer() {
 		os.Exit(1)
 	}
 
+	// Bootstrap partners from config file
+	if len(config.Partners) > 0 {
+		bootstrapPartners(ctx, config, partnerStore)
+	}
+
 	// Initialize services
 	signingService := NewVoucherSigningService(config.VoucherSigning.Mode, config.VoucherSigning.ExternalCommand, config.VoucherSigning.ExternalTimeout)
 
@@ -198,6 +207,7 @@ func runServer() {
 		config,
 		NewExternalCommandExecutor(config.DestinationCallback.ExternalCommand, config.DestinationCallback.Timeout),
 		didResolver,
+		partnerStore,
 	)
 
 	pushClient := NewVoucherPushClient()
