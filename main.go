@@ -201,7 +201,7 @@ func runServer() {
 	didEnabled := config.DIDCache.Enabled || config.DIDPush.Enabled || config.OwnerSignover.StaticDID != ""
 	didResolver := NewDIDResolver(nil, didEnabled)
 	if !config.Server.UseTLS {
-		didResolver.InsecureHTTP = true
+		didResolver.SetInsecureHTTP(true)
 	}
 
 	destinationResolver := NewVoucherDestinationResolver(

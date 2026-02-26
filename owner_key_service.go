@@ -79,7 +79,7 @@ func (o *OwnerKeyService) GetOwnerKey(ctx context.Context, serial, model string)
 
 // handleDIDResponse handles a DID response from the callback
 func (o *OwnerKeyService) handleDIDResponse(ctx context.Context, didURI string) (*OwnerKeyResult, error) {
-	resolver := NewDIDResolver(nil, false)
+	resolver := NewDIDResolver(nil, true)
 
 	publicKey, didURL, err := resolver.ResolveDIDKey(ctx, didURI)
 	if err != nil {

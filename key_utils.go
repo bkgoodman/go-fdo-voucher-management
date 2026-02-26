@@ -5,117 +5,29 @@ package main
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
-	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
 
-	"github.com/fido-device-onboard/go-fdo/cbor"
+	"github.com/fido-device-onboard/go-fdo/did"
 	"github.com/fido-device-onboard/go-fdo/protocol"
 )
 
-// FingerprintPublicKey computes a deterministic SHA-256 fingerprint of a public
-// key by converting to protocol.PublicKey and CBOR-encoding it. Returns raw
-// 32 bytes. This matches the spec definition of OwnerKeyFingerprint (SHA-256
-// of the CBOR-encoded Owner Key) and the PullAuth server's fingerprint.
-func FingerprintPublicKey(pub crypto.PublicKey) []byte {
-	protoKey, err := publicKeyToProtocol(pub)
-	if err != nil {
-		return nil
-	}
-	return FingerprintProtocolKey(protoKey)
-}
-
-// FingerprintProtocolKey computes a SHA-256 fingerprint of a CBOR-encoded
-// protocol.PublicKey. This is the canonical fingerprinting method used for
-// owner-key scoping in the Pull API, matching the spec §9.8 definition.
-func FingerprintProtocolKey(pub protocol.PublicKey) []byte {
-	data, err := cbor.Marshal(pub)
-	if err != nil {
-		return nil
-	}
-	h := sha256.Sum256(data)
-	return h[:]
-}
-
-// FingerprintPublicKeyHex returns the hex-encoded SHA-256 fingerprint of a
-// CBOR-encoded public key.
+// FingerprintPublicKeyHex returns the hex-encoded FDO OwnerKeyFingerprint
+// (SHA-256 of CBOR-encoded protocol.PublicKey, spec §9.8).
 func FingerprintPublicKeyHex(pub crypto.PublicKey) string {
-	fp := FingerprintPublicKey(pub)
-	if fp == nil {
-		return ""
-	}
-	return hex.EncodeToString(fp)
+	return did.FingerprintFDOHex(pub)
 }
 
-// protocolPublicKeyToCrypto converts a protocol.PublicKey to crypto.PublicKey
-func protocolPublicKeyToCrypto(protocolPubKey *protocol.PublicKey) (crypto.PublicKey, error) {
-	return protocolPubKey.Public()
-}
-
-// publicKeyToProtocol converts a crypto public key to protocol.PublicKey
-func publicKeyToProtocol(pubKey interface{}) (protocol.PublicKey, error) {
-	switch key := pubKey.(type) {
-	case *ecdsa.PublicKey:
-		derBytes, err := x509.MarshalPKIXPublicKey(key)
-		if err != nil {
-			return protocol.PublicKey{}, fmt.Errorf("failed to marshal ECDSA public key: %w", err)
-		}
-		cborEncoded, err := cbor.Marshal(derBytes)
-		if err != nil {
-			return protocol.PublicKey{}, fmt.Errorf("failed to CBOR-encode ECDSA public key: %w", err)
-		}
-
-		var keyType protocol.KeyType
-		switch key.Curve {
-		case elliptic.P256():
-			keyType = protocol.Secp256r1KeyType
-		case elliptic.P384():
-			keyType = protocol.Secp384r1KeyType
-		default:
-			return protocol.PublicKey{}, fmt.Errorf("unsupported ECDSA curve: %s", key.Curve)
-		}
-
-		return protocol.PublicKey{
-			Type:     keyType,
-			Encoding: protocol.X509KeyEnc,
-			Body:     cborEncoded,
-		}, nil
-
-	case *rsa.PublicKey:
-		derBytes, err := x509.MarshalPKIXPublicKey(key)
-		if err != nil {
-			return protocol.PublicKey{}, fmt.Errorf("failed to marshal RSA public key: %w", err)
-		}
-		cborEncoded, err := cbor.Marshal(derBytes)
-		if err != nil {
-			return protocol.PublicKey{}, fmt.Errorf("failed to CBOR-encode RSA public key: %w", err)
-		}
-
-		var keyType protocol.KeyType
-		switch key.Size() {
-		case 2048:
-			keyType = protocol.Rsa2048RestrKeyType
-		case 3072:
-			keyType = protocol.RsaPkcsKeyType
-		default:
-			return protocol.PublicKey{}, fmt.Errorf("unsupported RSA key size: %d", key.Size())
-		}
-
-		return protocol.PublicKey{
-			Type:     keyType,
-			Encoding: protocol.X509KeyEnc,
-			Body:     cborEncoded,
-		}, nil
-
-	default:
-		return protocol.PublicKey{}, fmt.Errorf("unsupported public key type: %T", pubKey)
+// FingerprintProtocolKey computes the FDO OwnerKeyFingerprint directly from a
+// protocol.PublicKey. Returns nil on error.
+func FingerprintProtocolKey(pub protocol.PublicKey) []byte {
+	fp, err := did.FingerprintProtocolKey(pub)
+	if err != nil {
+		return nil
 	}
+	return fp
 }
 
 // LoadPublicKeyFromPEM loads a public key from PEM format

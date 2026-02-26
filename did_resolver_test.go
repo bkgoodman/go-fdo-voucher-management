@@ -7,15 +7,17 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"testing"
+
+	"github.com/fido-device-onboard/go-fdo/did"
 )
 
 func TestParseDIDKey_P256(t *testing.T) {
 	// Test vector from did:key spec v0.9 §Test Vectors > P-256
 	didURI := "did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv"
 
-	key, err := parseDIDKey(didURI)
+	key, err := did.ParseDIDKey(didURI)
 	if err != nil {
-		t.Fatalf("parseDIDKey failed: %v", err)
+		t.Fatalf("ParseDIDKey failed: %v", err)
 	}
 
 	ecKey, ok := key.(*ecdsa.PublicKey)
@@ -34,9 +36,9 @@ func TestParseDIDKey_P384(t *testing.T) {
 	// Test vector from did:key spec v0.9 §Test Vectors > P-384
 	didURI := "did:key:z82LkvCwHNreneWpsgPEbV3gu1C6NFJEBg4srfJ5gdxEsMGRJUz2sG9FE42shbn2xkZJh54"
 
-	key, err := parseDIDKey(didURI)
+	key, err := did.ParseDIDKey(didURI)
 	if err != nil {
-		t.Fatalf("parseDIDKey failed: %v", err)
+		t.Fatalf("ParseDIDKey failed: %v", err)
 	}
 
 	ecKey, ok := key.(*ecdsa.PublicKey)
@@ -63,7 +65,7 @@ func TestParseDIDKey_Invalid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseDIDKey(tt.uri)
+			_, err := did.ParseDIDKey(tt.uri)
 			if err == nil {
 				t.Error("expected error")
 			}
@@ -72,18 +74,15 @@ func TestParseDIDKey_Invalid(t *testing.T) {
 }
 
 func TestParseDIDKey_RoundTrip(t *testing.T) {
-	// Generate a P-256 key, encode as did:key, then parse it back
-	// This tests that our encoding matches our decoding.
-	// We'll use the spec test vector and verify the key is usable.
+	// Parse the same did:key twice and verify deterministic output.
 	didURI := "did:key:zDnaerx9CtbPJ1q36T5Ln5wYt3MQYeGRG5ehnPAmxcf5mDZpv"
 
-	key1, err := parseDIDKey(didURI)
+	key1, err := did.ParseDIDKey(didURI)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Parse it again — should produce identical key
-	key2, err := parseDIDKey(didURI)
+	key2, err := did.ParseDIDKey(didURI)
 	if err != nil {
 		t.Fatal(err)
 	}

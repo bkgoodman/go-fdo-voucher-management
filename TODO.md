@@ -241,7 +241,7 @@ This is the **primary security model** for the protocol. Mutual DID exchange is 
 
 ### 11.8 Other DID Methods
 
-- ✅ **`did:key` resolution**: Fully implemented in `did_resolver.go` via `parseDIDKey()`. Supports P-256 (`0x8024`) and P-384 (`0x8124`) multicodec prefixes with base58-btc decoding and EC point decompression.
+- ✅ **`did:key` resolution**: Implemented in library `did/didkey.go` via `did.ParseDIDKey()` (zero external deps, inline base58-btc). App's `did_resolver.go` is a thin 79-line wrapper around `did.Resolver`. Supports P-256 (`0x8024`) and P-384 (`0x8124`) multicodec prefixes with EC point decompression.
 
 ## 12. Error Handling and Retry Logic (Spec §13)
 
@@ -372,3 +372,32 @@ All original quick-win batches have been completed ✅:
 - 🔲 **`error_code` in error responses** — all errors have `request_id` but still missing `error_code` field
 - 🔲 **`status` filter in pull list query** — parsed but not applied in DB query
 - 🔲 **`manufacturer` field persistence** — logged but not stored in VoucherTransmissionRecord
+
+---
+
+## Library Consolidation Status
+
+Consolidation of duplicate code between this app and the go-fdo library (`did/` and `transfer/` packages).
+
+### Completed
+
+- [x] **DID resolver**: `did_resolver.go` rewritten as 79-line thin wrapper around `did.Resolver` (was 271 lines). Removed `base58`, `go-did`, and 9 transitive deps.
+- [x] **did:key resolution**: Moved to library `did/didkey.go` with inline base58-btc decoder (zero external deps). P-256 + P-384 support.
+- [x] **InsecureHTTP**: Added to library's `did.Resolver` for dev/testing.
+- [x] **Fingerprint unification**: Library now has `did.FingerprintFDO()` (CBOR-based SHA-256, spec §9.8 correct) alongside `did.FingerprintJWK()` (RFC 7638). App delegates to library.
+- [x] **owner_key_service bug**: Fixed resolver created with `enabled=false` (always failed).
+- [x] **Consolidation guide**: `go-fdo/CONSOLIDATION_TODO.md` written for DI and Onboarding AI agents.
+
+### Remaining (in this project)
+
+- [ ] **PEM functions**: `LoadPublicKeyFromPEM`, `LoadPrivateKeyFromPEM` in `key_utils.go` could delegate to `did.LoadPrivateKeyPEM()` etc. VM versions handle extra PEM block types (`RSA PUBLIC KEY`, `CERTIFICATE`) that library doesn't — would need library extension first.
+- [ ] **Push client**: Switch `voucher_push_client.go` to `transfer.HTTPPushSender` (library already has it).
+- [ ] **Receiver handler**: Switch `voucher_receiver_handler.go` to `transfer.HTTPPushReceiver` (library already has it).
+
+### Blocked on library additions
+
+- [ ] **TransmissionStore**: ~454 lines could move to `transfer/` package.
+- [ ] **RetryWorker**: ~119 lines could move to `transfer/` package.
+- [ ] **PushOrchestrator**: ~227 lines could move to `transfer/` package.
+- [ ] **TokenStore**: ~188 lines could move to `transfer/` package.
+- [ ] **LoadOrGenerateKey**: ~80 lines could become `did.LoadOrGenerateKey()`.

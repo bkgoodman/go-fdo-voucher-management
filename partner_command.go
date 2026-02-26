@@ -123,7 +123,7 @@ func partnersAddCmd() {
 		didEnabled := config.DIDCache.Enabled || config.DIDPush.Enabled || config.OwnerSignover.StaticDID != ""
 		resolver := NewDIDResolver(nil, didEnabled || true) // always enable for CLI
 		if !config.Server.UseTLS {
-			resolver.InsecureHTTP = true
+			resolver.SetInsecureHTTP(true)
 		}
 		key, recipientURL, resolveErr := resolver.ResolveDIDKey(context.Background(), *didURI)
 		if resolveErr != nil {

@@ -114,7 +114,7 @@ func (w *PartnerRefreshWorker) refreshPartner(ctx context.Context, p *Partner) e
 	// (ResolveDIDKey already parsed it, but we want the raw JSON too)
 	docJSON := ""
 	if w.didResolver != nil {
-		docURL, urlErr := w.didResolver.webDIDToURL(p.DIDURI)
+		docURL, urlErr := w.didResolver.WebDIDToURL(p.DIDURI)
 		if urlErr == nil {
 			rawDoc, fetchErr := w.fetchRawDocument(ctx, docURL)
 			if fetchErr == nil {
@@ -147,10 +147,7 @@ func (w *PartnerRefreshWorker) refreshPartner(ctx context.Context, p *Partner) e
 
 // fetchRawDocument fetches the raw DID document JSON from the given URL.
 func (w *PartnerRefreshWorker) fetchRawDocument(ctx context.Context, docURL string) (string, error) {
-	client := w.didResolver.httpClient
-	if client == nil {
-		return "", nil
-	}
+	client := w.didResolver.HTTPClient()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, docURL, nil)
 	if err != nil {
