@@ -339,6 +339,35 @@ All original quick-win batches have been completed ✅:
 - ~~⚠️ **Multi-partner destination resolution**~~ — DONE: `VoucherDestinationResolver` queries `PartnerStore` by owner key fingerprint. Only `can_receive_vouchers` partners are routed to. Only `can_supply_vouchers` partners are trusted as voucher sources (`IsTrustedSupplier`). Priority: callback → partner → DID → static.
 - ~~🔲 **CLI command reference**~~ — DONE: [CLI_REFERENCE.md](CLI_REFERENCE.md) — complete reference for all subcommands (`server`, `vouchers`, `tokens`, `partners`, `pull`, `pullauth`, `generate`, `keys`), flags, and examples. README updated to reference it.
 - ~~🔲 **Configuration reference**~~ — DONE: [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) — complete reference for all `config.yaml` sections, fields, types, defaults, and usage notes including recipes. README updated to reference it.
+
+### ~~🔴~~ ✅ Key Persistence + Holder Key Unification — DONE
+
+~~**⚠️ REQUIRED BEFORE PRODUCTION**~~ — Fixed. Owner key now persists across restarts and PullAuth uses the same key.
+
+**What was fixed:**
+
+1. ~~**🐛 No key persistence**~~ — ✅ `loadOrGenerateOwnerKey()` in `did_minting_setup.go` supports: `import_key_file` (load PEM), `first_time_init` + `key_export_path` (generate once, persist, reload), ephemeral fallback (with warning).
+2. ~~**🐛 PullAuth uses a separate key**~~ — ✅ `setupDIDMinting()` returns `crypto.Signer`, passed to `setupPullService()` as the unified `HolderKey`.
+3. ~~**DID minting refactor**~~ — ✅ Key loading separated from DID document construction. Uses `did.NewDocument()` with the loaded public key.
+
+**Tests:** Unit tests (`TestLoadOrGenerateOwnerKey_*`, 7 cases) + integration test (`test-key-persistence.sh`, 10 assertions).
+
+### 🟡 Future: External Key Management (HSM/TPM/KMS)
+
+**Design doc:** [EXTERNAL_KEY_MANAGEMENT.md](EXTERNAL_KEY_MANAGEMENT.md)
+
+**Scope (future phases):**
+
+- **Phase 2:** External command callback for HSM/KMS signing (port from DI project's `ExternalHSMSigner`).
+- **Phase 3:** Native PKCS#11 (Luna HSM, SoftHSM) + TPM 2.0 support via optional build tags.
+- **Phase 4:** Built-in cloud KMS drivers (AWS KMS, Azure Key Vault, GCP Cloud KMS, HashiCorp Vault Transit).
+
+**Key integration points:** `did_minting_setup.go` (key loading), `voucher_signing_service.go` (`OwnerSigner` is already `crypto.Signer` interface), `config.go` (needs `mode`, `public_key_file`, `external_command` fields for Phase 2+).
+
+**Prior art:** DI project's `external_hsm_signer.go` — implements `crypto.Signer` by shelling out to an external command with JSON request/response. go-fdo library's `tpm/` package for TPM support.
+
+### Other Remaining Items
+
 - ❌ **Cryptographic continuation tokens** — needs HMAC key management, token format design (§8.5 SHOULD)
 - 🔲 **`error_code` in error responses** — all errors have `request_id` but still missing `error_code` field
 - 🔲 **`status` filter in pull list query** — parsed but not applied in DB query

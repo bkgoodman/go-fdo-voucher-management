@@ -267,6 +267,12 @@ VoucherPushClient (HTTP multipart upload)
 Downstream Endpoint
 ```
 
+## Production Deployment
+
+For guidance on deploying this service in production — including database choices, persistent storage, key management, TLS, backup/recovery, high availability, monitoring, and a security checklist — see **[PRODUCTION_CONSIDERATIONS.md](PRODUCTION_CONSIDERATIONS.md)**.
+
+For library-level security concerns (certificate validation, revocation checking, protocol security), see **[go-fdo/PRODUCTION_CONSIDERATIONS.md](go-fdo/PRODUCTION_CONSIDERATIONS.md)**.
+
 ## License
 
 SPDX-License-Identifier: Apache 2.0

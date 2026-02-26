@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -243,14 +244,19 @@ func runServer() {
 		slog.Info("voucher receiver endpoint registered", "endpoint", config.VoucherReceiver.Endpoint)
 	}
 
-	// Setup pull service (PullAuth + Pull API)
-	if config.PullService.Enabled {
-		setupPullService(config, mux, signingService, fileStore, transmitStore)
+	// Setup DID minting and serving (must happen before pull service so owner key is available)
+	var ownerKey crypto.Signer
+	if config.DIDMinting.Enabled {
+		ownerKey = setupDIDMinting(config, mux, signingService)
 	}
 
-	// Setup DID minting and serving
-	if config.DIDMinting.Enabled {
-		setupDIDMinting(config, mux, signingService)
+	// Setup pull service (PullAuth + Pull API) — uses the same owner key as DID identity
+	if config.PullService.Enabled {
+		if ownerKey == nil {
+			slog.Error("pull service requires DID minting to be enabled (owner key needed for PullAuth)")
+		} else {
+			setupPullService(config, mux, ownerKey, fileStore, transmitStore)
+		}
 	}
 
 	server := &http.Server{

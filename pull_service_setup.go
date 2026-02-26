@@ -4,8 +4,7 @@
 package main
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
+	"crypto"
 	"crypto/rand"
 	"fmt"
 	"log/slog"
@@ -18,15 +17,15 @@ import (
 )
 
 // setupPullService configures and registers the PullAuth and Pull API handlers.
-func setupPullService(config *Config, mux *http.ServeMux, signingService *VoucherSigningService, fileStore *VoucherFileStore, transmitStore *VoucherTransmissionStore) {
-	// Generate an ephemeral Holder key for signing PullAuth challenges.
-	// This key is only used for the challenge-response handshake, not for
-	// voucher signing. It is regenerated on each server start.
-	holderKey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	if err != nil {
-		slog.Error("pull service: failed to generate holder key", "error", err)
+// The ownerKey parameter is the server's persistent owner key, used both for
+// voucher signing and for PullAuth Holder challenge signing. This ensures a
+// Recipient can verify the Holder's identity against the DID document.
+func setupPullService(config *Config, mux *http.ServeMux, ownerKey crypto.Signer, fileStore *VoucherFileStore, transmitStore *VoucherTransmissionStore) {
+	if ownerKey == nil {
+		slog.Error("pull service: owner key is nil — cannot configure PullAuth without an owner key")
 		return
 	}
+	holderKey := ownerKey
 
 	sessionStore := transfer.NewSessionStore(
 		config.PullService.SessionTTL,
