@@ -337,6 +337,8 @@ All original quick-win batches have been completed ✅:
 
 - ~~⚠️ **Partner CLI commands + config bootstrap**~~ — DONE: `partners add/list/show/remove/export` CLI with capability flags (`-supply`, `-receive`). Config bootstrap via `partners:` section (`can_supply`/`can_receive` fields). DID resolution on add.
 - ~~⚠️ **Multi-partner destination resolution**~~ — DONE: `VoucherDestinationResolver` queries `PartnerStore` by owner key fingerprint. Only `can_receive_vouchers` partners are routed to. Only `can_supply_vouchers` partners are trusted as voucher sources (`IsTrustedSupplier`). Priority: callback → partner → DID → static.
+- ~~🔲 **CLI command reference**~~ — DONE: [CLI_REFERENCE.md](CLI_REFERENCE.md) — complete reference for all subcommands (`server`, `vouchers`, `tokens`, `partners`, `pull`, `pullauth`, `generate`, `keys`), flags, and examples. README updated to reference it.
+- ~~🔲 **Configuration reference**~~ — DONE: [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) — complete reference for all `config.yaml` sections, fields, types, defaults, and usage notes including recipes. README updated to reference it.
 - ❌ **Cryptographic continuation tokens** — needs HMAC key management, token format design (§8.5 SHOULD)
 - 🔲 **`error_code` in error responses** — all errors have `request_id` but still missing `error_code` field
 - 🔲 **`status` filter in pull list query** — parsed but not applied in DB query

@@ -56,7 +56,12 @@ Key configuration sections:
 - **voucher_signing**: Signing mode (internal/external/hsm)
 - **owner_signover**: Next owner key resolution (static/dynamic)
 - **push_service**: Outbound transmission endpoint and retry settings
+- **pull_service**: PullAuth protocol and pull API settings
+- **did_minting**: DID document generation and serving
+- **partners**: Trusted partner bootstrap entries
 - **retry_worker**: Background retry loop configuration
+
+For a complete reference of every configuration field, type, default value, and usage notes, see **[CONFIG_REFERENCE.md](CONFIG_REFERENCE.md)**.
 
 ## Running
 
@@ -78,57 +83,44 @@ The server will:
 
 ### CLI Commands
 
-#### List Vouchers
-
-```bash
-./fdo-voucher-manager vouchers list -config config.yaml
-./fdo-voucher-manager vouchers list -status pending -limit 100
-./fdo-voucher-manager vouchers list -guid <guid>
+```
+fdo-voucher-manager <subcommand> [options]
 ```
 
-#### Show Voucher Details
+| Subcommand | Description |
+|---|---|
+| `server` | Start the HTTP server |
+| `vouchers` | Manage voucher transmission records (list, show, retry) |
+| `tokens` | Manage receiver authentication tokens (add, list, delete) |
+| `partners` | Manage trusted partner identities (add, list, show, remove, export) |
+| `pull` | Authenticate and download vouchers from a Holder |
+| `pullauth` | PullAuth handshake only (authentication test) |
+| `generate` | Generate test vouchers |
+| `keys` | Inspect and export cryptographic keys |
+| `help` | Show usage summary |
+
+#### Quick Examples
 
 ```bash
-./fdo-voucher-manager vouchers show -guid <guid> -config config.yaml
-```
+# Start server
+./fdo-voucher-manager server -config config.yaml
 
-#### Retry Transmission
+# List pending vouchers
+./fdo-voucher-manager vouchers list -status pending
 
-```bash
-./fdo-voucher-manager vouchers retry -guid <guid> -config config.yaml
-```
-
-#### Pull Vouchers
-
-```bash
-# Pull with owner private key (standard)
+# Pull vouchers from a Holder
 ./fdo-voucher-manager pull -url http://holder:8083 -key owner.pem -output ./vouchers/
 
-# Pull with delegate certificate (intra-org or cross-org)
-./fdo-voucher-manager pull -url http://holder:8083 \
-    -owner-pub owner-public.pem \
-    -delegate-key delegate.pem \
-    -delegate-chain chain.pem \
-    -output ./vouchers/
+# Add a trusted upstream supplier
+./fdo-voucher-manager partners add -id acme-mfg -supply -did "did:web:mfg.acme.com:vouchers"
 
-# PullAuth handshake only (get session token)
-./fdo-voucher-manager pullauth -url http://holder:8083 -key owner.pem
+# Generate a test voucher
+./fdo-voucher-manager generate voucher -serial SN-123 -output test.fdoov
 ```
 
-**Delegate-based pull** allows entities to pull vouchers without the owner's private key, using a delegate certificate with `voucher-claim` permission. This supports intra-organization distribution (internal services pulling from a central voucher service) and cross-organization pull (pulling from an upstream provider). See **[VOUCHER_SUPPLY_CHAIN.md](VOUCHER_SUPPLY_CHAIN.md#intra-organization-distribution-delegate-pull)** for details.
+For the complete command reference with all flags and options, see **[CLI_REFERENCE.md](CLI_REFERENCE.md)**.
 
-#### Manage Authentication Tokens
-
-```bash
-# Add token
-./fdo-voucher-manager tokens add -token <token> -description "My token" -expires 24
-
-# List tokens
-./fdo-voucher-manager tokens list -config config.yaml
-
-# Delete token
-./fdo-voucher-manager tokens delete -token <token> -config config.yaml
-```
+**Delegate-based pull** allows entities to pull vouchers without the owner's private key, using a delegate certificate with `voucher-claim` permission. See **[VOUCHER_SUPPLY_CHAIN.md](VOUCHER_SUPPLY_CHAIN.md#intra-organization-distribution-delegate-pull)** for details.
 
 ## Voucher Pipeline
 
