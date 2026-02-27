@@ -36,6 +36,12 @@ Be aware of different _types_ of tests to be concidered when adding (or changing
 
 Please add tests with some level of discression. We don't need _every_ possible code change to do full positive and negative, unit and integration testing. But certinally high-level functionality, user commands, etc should be well-covered.
 
+### Evidence-Based Testing
+
+**Mantra:** "I don't trust you"
+
+When you run tests, we generally want to see some **evidence** that the test did what it was supposed to do. i.e. If we are creating vouchers or keys, we want to see (probably not the key or voucher in it's entirety) some evidence that it was created (e.g. hash, filename, etc.) Even if it is a file that we can subsequetly go look at. We want to see what it is, and some evidence that it was **used** in whatever operations we were doing. (This is often why we like negative test - i.e. Break the key - watch the protocol fail).
+
 ## Work Tracking
 
 It may be okay to leave stuff incomplete, but when done, keep track in TODO.md so we don't lose track.

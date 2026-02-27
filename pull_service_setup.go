@@ -86,7 +86,9 @@ func newPullTokenStore(ttl time.Duration) *pullTokenStore {
 }
 
 func (s *pullTokenStore) issue(ownerKey protocol.PublicKey) (string, time.Time, error) {
-	// Compute fingerprint from the CBOR-encoded owner key (matches PullAuth.Result spec)
+	// Compute fingerprint from the owner key. FingerprintProtocolKey normalizes
+	// via crypto.PublicKey internally, so the result matches FingerprintFDOHex
+	// used by the pipeline to store owner_key_fingerprint.
 	fingerprint := FingerprintProtocolKey(ownerKey)
 	if fingerprint == nil {
 		return "", time.Time{}, fmt.Errorf("failed to compute owner key fingerprint")
