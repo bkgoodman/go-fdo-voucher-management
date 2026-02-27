@@ -14,14 +14,18 @@ import (
 	"github.com/fido-device-onboard/go-fdo/protocol"
 )
 
-// FingerprintPublicKeyHex returns the hex-encoded FDO OwnerKeyFingerprint
-// (SHA-256 of CBOR-encoded protocol.PublicKey, spec §9.8).
+// NOTE: PEM loading functions delegate to the go-fdo library (did package).
+// The library handles PUBLIC KEY, RSA PUBLIC KEY, CERTIFICATE, PRIVATE KEY,
+// RSA PRIVATE KEY, and EC PRIVATE KEY PEM block types.
+
+// FingerprintPublicKeyHex returns the hex-encoded FDO OwnerKeyFingerprint.
+// The key is normalized to X509 encoding before CBOR-marshal and SHA-256 (spec §9.8).
 func FingerprintPublicKeyHex(pub crypto.PublicKey) string {
 	return did.FingerprintFDOHex(pub)
 }
 
-// FingerprintProtocolKey computes the FDO OwnerKeyFingerprint directly from a
-// protocol.PublicKey. Returns nil on error.
+// FingerprintProtocolKey computes the FDO OwnerKeyFingerprint from a
+// protocol.PublicKey, normalizing via crypto.PublicKey first. Returns nil on error.
 func FingerprintProtocolKey(pub protocol.PublicKey) []byte {
 	fp, err := did.FingerprintProtocolKey(pub)
 	if err != nil {
@@ -30,62 +34,14 @@ func FingerprintProtocolKey(pub protocol.PublicKey) []byte {
 	return fp
 }
 
-// LoadPublicKeyFromPEM loads a public key from PEM format
+// LoadPublicKeyFromPEM loads a public key from PEM format.
 func LoadPublicKeyFromPEM(pemData []byte) (crypto.PublicKey, error) {
-	block, _ := pem.Decode(pemData)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	switch block.Type {
-	case "PUBLIC KEY":
-		return x509.ParsePKIXPublicKey(block.Bytes)
-	case "RSA PUBLIC KEY":
-		return x509.ParsePKCS1PublicKey(block.Bytes)
-	case "CERTIFICATE":
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse certificate: %w", err)
-		}
-		return cert.PublicKey, nil
-	default:
-		return nil, fmt.Errorf("unsupported PEM block type: %s", block.Type)
-	}
+	return did.LoadPublicKeyPEM(pemData)
 }
 
-// LoadPrivateKeyFromPEM loads a private key from PEM format
+// LoadPrivateKeyFromPEM loads a private key from PEM format.
 func LoadPrivateKeyFromPEM(pemData []byte) (crypto.Signer, error) {
-	block, _ := pem.Decode(pemData)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	switch block.Type {
-	case "PRIVATE KEY":
-		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse PKCS8 private key: %w", err)
-		}
-		signer, ok := key.(crypto.Signer)
-		if !ok {
-			return nil, fmt.Errorf("key is not a signer")
-		}
-		return signer, nil
-	case "RSA PRIVATE KEY":
-		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse PKCS1 private key: %w", err)
-		}
-		return key, nil
-	case "EC PRIVATE KEY":
-		key, err := x509.ParseECPrivateKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse EC private key: %w", err)
-		}
-		return key, nil
-	default:
-		return nil, fmt.Errorf("unsupported PEM block type: %s", block.Type)
-	}
+	return did.LoadPrivateKeyPEM(pemData)
 }
 
 // LoadPublicKeyFromFile loads a public key from a PEM file

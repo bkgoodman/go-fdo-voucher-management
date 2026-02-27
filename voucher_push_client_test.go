@@ -4,7 +4,6 @@
 package main
 
 import (
-	"net/http"
 	"testing"
 	"time"
 )
@@ -62,30 +61,5 @@ func TestBackoffDuration(t *testing.T) {
 	maxCap := 24 * time.Hour
 	if dMax < time.Duration(float64(maxCap)*0.75) || dMax > time.Duration(float64(maxCap)*1.25) {
 		t.Errorf("attempt 100: got %v, want ~24h (±25%%)", dMax)
-	}
-}
-
-func TestParseRetryAfter(t *testing.T) {
-	// Seconds format
-	d := parseRetryAfter("120")
-	if d != 120*time.Second {
-		t.Errorf("parseRetryAfter(\"120\") = %v, want 2m0s", d)
-	}
-
-	// Empty
-	if d := parseRetryAfter(""); d != 0 {
-		t.Errorf("parseRetryAfter(\"\") = %v, want 0", d)
-	}
-
-	// HTTP-date format (future time)
-	future := time.Now().Add(60 * time.Second).UTC().Format(http.TimeFormat)
-	d = parseRetryAfter(future)
-	if d < 50*time.Second || d > 70*time.Second {
-		t.Errorf("parseRetryAfter(future) = %v, want ~60s", d)
-	}
-
-	// Invalid
-	if d := parseRetryAfter("garbage"); d != 0 {
-		t.Errorf("parseRetryAfter(\"garbage\") = %v, want 0", d)
 	}
 }

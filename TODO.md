@@ -390,9 +390,9 @@ Consolidation of duplicate code between this app and the go-fdo library (`did/` 
 
 ### Remaining (in this project)
 
-- [ ] **PEM functions**: `LoadPublicKeyFromPEM`, `LoadPrivateKeyFromPEM` in `key_utils.go` could delegate to `did.LoadPrivateKeyPEM()` etc. VM versions handle extra PEM block types (`RSA PUBLIC KEY`, `CERTIFICATE`) that library doesn't — would need library extension first.
-- [ ] **Push client**: Switch `voucher_push_client.go` to `transfer.HTTPPushSender` (library already has it).
-- [ ] **Receiver handler**: Switch `voucher_receiver_handler.go` to `transfer.HTTPPushReceiver` (library already has it).
+- [x] **PEM functions**: `LoadPublicKeyFromPEM`, `LoadPrivateKeyFromPEM` in `key_utils.go` now delegate to `did.LoadPublicKeyPEM()` / `did.LoadPrivateKeyPEM()`. Library was extended to handle all needed PEM block types (`RSA PUBLIC KEY`, `CERTIFICATE`, `EC PRIVATE KEY`, `RSA PRIVATE KEY`). `LoadPublicKeyFromFile` / `LoadPrivateKeyFromFile` remain as thin file-reading convenience wrappers.
+- [x] **Push client**: `VoucherPushClient` in `voucher_push_client.go` now wraps `transfer.HTTPPushSender` for all HTTP mechanics. `PushError` is a type alias for `transfer.PushError` (with `StatusCode`, `RetryAfter`, `IsTransient()`). Library extended to return `*PushError` on HTTP failures instead of plain `fmt.Errorf`. App adapter reads file → parses voucher → delegates to library sender.
+- [ ] **Receiver handler**: Assessed — not practical to consolidate. The app's `VoucherReceiverHandler` has extensive business logic not present in the library's `HTTPPushReceiver`: 3-state auth (401 vs 403), manufacturer key verification via `PartnerStore`, owner key fingerprinting for pull scoping, audit logging, `request_id` in errors, PEM-aware save, duplicate detection (409), async pipeline trigger. Keeping as app-specific.
 
 ### Full-Stack Integration Super-Test
 
