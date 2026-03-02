@@ -366,6 +366,19 @@ All original quick-win batches have been completed ✅:
 
 **Prior art:** DI project's `external_hsm_signer.go` — implements `crypto.Signer` by shelling out to an external command with JSON request/response. go-fdo library's `tpm/` package for TPM support.
 
+### 🟡 Future: Standalone BMO Meta-Payload Tool
+
+A standalone CLI app for OS vendors to create, sign, and publish BMO meta-payloads for FDO-capable devices. Would wrap the library functions delivered in `go-fdo/fsim/meta_helpers.go`:
+
+- Generate or import ECDSA signing keys
+- Create meta-payload CBOR files (`fsim.CreateMetaPayload()`)
+- Sign meta-payloads with COSE Sign1 (`fsim.SignMetaPayload()`)
+- Export public key for OBS config (`fsim.MarshalSignerPublicKey()`)
+- Verify signed payloads (self-check) (`fsim.CoseSign1Verifier.Verify()`)
+- Key rotation, batch signing, publishing workflow
+
+**Current state:** All library building blocks exist. The `fdo meta` CLI subcommand provides the raw operations. The standalone app would add key management UI, batch workflows, and a simpler UX for non-FDO-expert OS vendors.
+
 ### Other Remaining Items
 
 - ❌ **Cryptographic continuation tokens** — needs HMAC key management, token format design (§8.5 SHOULD)
@@ -406,6 +419,8 @@ Located in `tests/supertest/`. Exercises all 5 FDO apps end-to-end.
 - [x] **Scenario 6**: DID + PullAuth owner-key + delegate pull + isolation negative test
 - [x] **Runtime validation**: All 6 scenarios pass against live builds (S1:8/8, S2:7/7, S3:8/8, S4:6/6, S5:7/7, S6:5/5)
 - [ ] **Scenario 7**: VM pulls from Mfg (Mfg ←PullAuth← VM). **Expected failure** — Mfg (go-fdo-di) has no PullAuth holder support. Confirmed: HTTP 404 on PullAuth.Hello. Commented out of main runner until go-fdo-di is updated.
+- [x] **Scenario 8**: BMO Meta-URL Integration (inline + unsigned meta-URL + signed meta-URL + tampered-signature negative test). Uses go-fdo example server directly. Registered in `run-all-supertests.sh`.
+- [x] **Scenario 8 Enhanced**: BMO Meta-URL with go-fdo-meta-tool integration (full positive/negative testing including hash verification). Tests the new standalone meta tool creates compatible payloads.
 - [ ] **FDO v101 variant**: Add client-side FDO version 101 test variant
 
 ### Known Issues

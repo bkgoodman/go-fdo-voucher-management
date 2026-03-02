@@ -76,6 +76,20 @@ The most comprehensive scenario. Tests three PullAuth modes against the same Hol
 
 Then completes full onboarding via RV.
 
+### Scenario 8: BMO Meta-URL Integration
+
+**Services:** go-fdo example server (direct) | **Protocols:** DI, TO2 with BMO FSIM
+
+Tests BMO (Bare Metal Onboarding) meta-URL delivery mode using the go-fdo example server directly (bypasses OBS, which lacks BMO support). Five phases:
+
+1. **Bootstrap:** Build go-fdo binary, create test image
+2. **BMO Inline:** Standard inline delivery (baseline)
+3. **Unsigned Meta-URL:** Create meta-payload with `fdo meta create`, serve via HTTP, onboard via `-bmo-meta-url`
+4. **Signed Meta-URL:** Create signed meta-payload with `fdo meta create-signed`, export public key, onboard with signature verification
+5. **Negative:** Tamper with signed meta-payload, verify onboarding fails with signature verification error
+
+Uses ports 9801 (FDO) and 18082 (HTTP file server).
+
 ## Test Matrix
 
 | Scenario | DI | Push | Pull | TO0 | TO1 | TO2 | Delegate | DID | PullAuth |
@@ -86,6 +100,7 @@ Then completes full onboarding via RV.
 | 4 Pull | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | Owner-key |
 | 5 Delegate | ✓ | ✓ | | ✓* | ✓ | ✓* | ✓ | | — |
 | 6 DID+Pull | ✓ | ✓ | ✓✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Both |
+| 8 BMO Meta | ✓ | | | | | ✓ | | | — |
 
 ## Port Allocation
 
@@ -99,6 +114,7 @@ Each scenario uses isolated ports to avoid conflicts:
 | 4 | 9401 | 9402 | 9403 | 9404 |
 | 5 | 9501 | — | 9503 | 9502 |
 | 6 | 9601 | 9602 | 9603 | 9604 |
+| 8 | 9801 (FDO) | — | — | — (HTTP: 18082) |
 
 ## Artifact Directories
 

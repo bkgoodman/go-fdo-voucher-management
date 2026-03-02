@@ -84,6 +84,9 @@ run_scenario "scenario-6-did-pull-delegate.sh" "6: DID + PullAuth (owner-key + d
 # Uncomment once go-fdo-di adds PullAuth holder endpoints.
 # run_scenario "scenario-7-mfg-pull.sh"        "7: Mfg Pull (Mfg ← VM via PullAuth)"
 
+run_scenario "scenario-8-bmo-meta-url.sh"   "8: BMO Meta-URL (inline + unsigned + signed + negative)"
+run_scenario "scenario-8-enhanced-bmo-meta-url.sh" "8E: BMO Meta-URL Enhanced (go-fdo-meta-tool integration)"
+
 # ============================================================
 # Final summary
 # ============================================================
