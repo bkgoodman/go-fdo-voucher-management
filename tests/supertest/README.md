@@ -90,6 +90,42 @@ Tests BMO (Bare Metal Onboarding) meta-URL delivery mode using the go-fdo exampl
 
 Uses ports 9801 (FDO) and 18082 (HTTP file server).
 
+### Scenario 9: Comprehensive FDOKeyAuth Testing
+
+**Services:** Mfg, VM, OBS | **Transfer:** Push + Pull | **Protocols:** DI, FDOKeyAuth (all flows)
+
+Comprehensive testing of all FDOKeyAuth authentication flows with both positive and negative test cases:
+
+**Push Authentication Tests:**
+- Mfg → VM with correct key: SUCCESS
+- Mfg → VM with wrong key: BLOCKED
+- Mfg → OBS with correct key: SUCCESS  
+- Mfg → OBS with wrong key: BLOCKED
+
+**Pull Authentication Tests:**
+- VM → OBS with correct key: SUCCESS
+- VM → OBS with wrong key: BLOCKED (0 vouchers)
+
+**FDOKeyAuth Handshake Tests:**
+- Correct owner key: SUCCESS
+- Wrong owner key: BLOCKED
+
+All services use DID-based keying. Tests proper owner-key scoping and isolation between different owners.
+
+### Scenario 10: FDOKeyAuth Token Lifecycle
+
+**Services:** VM, OBS | **Transfer:** Pull | **Protocols:** FDOKeyAuth (token management)
+
+Tests token lifecycle management in FDOKeyAuth with short token TTL (10 seconds):
+
+- Token issuance and caching
+- Token expiration handling  
+- Automatic token refresh
+- Invalid token rejection
+- Per-destination token scoping
+
+Validates that expired tokens are properly rejected and refreshed automatically.
+
 ## Test Matrix
 
 | Scenario | DI | Push | Pull | TO0 | TO1 | TO2 | Delegate | DID | FDOKeyAuth |
@@ -101,6 +137,8 @@ Uses ports 9801 (FDO) and 18082 (HTTP file server).
 | 5 Delegate | ✓ | ✓ | | ✓* | ✓ | ✓* | ✓ | | — |
 | 6 DID+Pull | ✓ | ✓ | ✓✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Both |
 | 8 BMO Meta | ✓ | | | | | ✓ | | | — |
+| 9 FDOKeyAuth | ✓ | ✓✓ | ✓ | | | | | ✓ | All flows |
+| 10 Token | | | ✓ | | | | | ✓ | Lifecycle |
 
 ## Port Allocation
 
@@ -115,6 +153,8 @@ Each scenario uses isolated ports to avoid conflicts:
 | 5 | 9501 | — | 9503 | 9502 |
 | 6 | 9601 | 9602 | 9603 | 9604 |
 | 8 | 9801 (FDO) | — | — | — (HTTP: 18082) |
+| 9 | 9901 | 9902 | — | 9903 |
+| 10 | — | 9902 | — | 9903 |
 
 ## Artifact Directories
 

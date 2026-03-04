@@ -111,6 +111,7 @@ gen_mfg_config "$PORT_MFG" "$MFG_DB" "$MFG_VOUCHERS" \
     "$VM_OWNER_PUB" \
     "" \
     "" \
+    "" \
     "127.0.0.1" "$PORT_MFG" "http" \
     > "$MFG_CONFIG"
 

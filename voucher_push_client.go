@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -117,10 +118,20 @@ func (c *VoucherPushClient) getOrRefreshToken(destURL string) (string, error) {
 	c.tokenMu.RUnlock()
 
 	// Perform FDOKeyAuth handshake
+	// Parse the destination URL to extract base URL and path prefix
+	parsedURL, err := url.Parse(destURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid destination URL %s: %w", destURL, err)
+	}
+
+	baseURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+	pathPrefix := parsedURL.Path
+
 	client := &transfer.FDOKeyAuthClient{
 		CallerKey:  c.OwnerKey,
 		HashAlg:    protocol.Sha256Hash,
-		BaseURL:    destURL,
+		BaseURL:    baseURL,
+		PathPrefix: pathPrefix,
 		HTTPClient: &http.Client{Timeout: 30 * time.Second},
 	}
 

@@ -87,6 +87,10 @@ run_scenario "scenario-6-did-pull-delegate.sh" "6: DID + FDOKeyAuth (owner-key +
 run_scenario "scenario-8-bmo-meta-url.sh"   "8: BMO Meta-URL (inline + unsigned + signed + negative)"
 run_scenario "scenario-8-enhanced-bmo-meta-url.sh" "8E: BMO Meta-URL Enhanced (go-fdo-meta-tool integration)"
 
+# New comprehensive FDOKeyAuth testing scenarios
+run_scenario "scenario-9-fdokeyauth-comprehensive.sh" "9: Comprehensive FDOKeyAuth (all flows + positive/negative)"
+run_scenario "scenario-10-token-expiration.sh" "10: FDOKeyAuth Token Lifecycle (expiration + refresh)"
+
 # ============================================================
 # Final summary
 # ============================================================

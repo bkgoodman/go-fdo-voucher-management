@@ -152,6 +152,7 @@ narrate "VM is configured to re-sign to the same key)."
 gen_mfg_config "$PORT_MFG" "$MFG_DB" "$MFG_VOUCHERS" \
     "$OBS_OWNER_KEY" \
     "http://127.0.0.1:${PORT_VM}/api/v1/vouchers" \
+    "test-s3-push-token" \
     "" \
     "127.0.0.1" "$PORT_RV" "http" \
     > "$MFG_CONFIG"

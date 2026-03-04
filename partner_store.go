@@ -319,6 +319,17 @@ func (s *PartnerStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// HasSuppliers returns true if at least one enabled partner with
+// can_supply_vouchers is registered. Used to decide whether to enforce
+// supplier trust on push authentication.
+func (s *PartnerStore) HasSuppliers(ctx context.Context) bool {
+	var count int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM partners WHERE enabled = 1 AND can_supply_vouchers = 1`,
+	).Scan(&count)
+	return err == nil && count > 0
+}
+
 // IsTrustedSupplier checks whether the given public key belongs to an enabled
 // partner that is authorized to supply vouchers (upstream manufacturer/peer).
 // Returns the partner ID if trusted, or empty string if not.

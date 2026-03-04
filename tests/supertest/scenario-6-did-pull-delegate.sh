@@ -168,6 +168,7 @@ gen_mfg_config "$PORT_MFG" "$MFG_DB" "$MFG_VOUCHERS" \
     "$VM_OWNER_PUB" \
     "http://127.0.0.1:${PORT_VM}/api/v1/vouchers" \
     "" \
+    "" \
     "127.0.0.1" "$PORT_RV" "http" \
     > "$MFG_CONFIG"
 

@@ -48,19 +48,20 @@ func (m *VoucherReceiverTokenManager) Init(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_receiver_audit_received ON voucher_receiver_audit(received_at)`,
 	}
 
-	// Schema migration: add owner_key_fingerprint column if missing
+	for _, stmt := range stmts {
+		if _, err := m.db.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("failed to initialize receiver schema: %w", err)
+		}
+	}
+
+	// Schema migration: add owner_key_fingerprint column if missing.
+	// Runs AFTER table creation so the table exists for ALTER TABLE.
 	migrations := []string{
 		`ALTER TABLE voucher_receiver_tokens ADD COLUMN owner_key_fingerprint TEXT`,
 	}
 	for _, stmt := range migrations {
 		// Ignore "duplicate column" errors — means migration already applied
 		_, _ = m.db.ExecContext(ctx, stmt)
-	}
-
-	for _, stmt := range stmts {
-		if _, err := m.db.ExecContext(ctx, stmt); err != nil {
-			return fmt.Errorf("failed to initialize receiver schema: %w", err)
-		}
 	}
 
 	return nil

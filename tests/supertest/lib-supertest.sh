@@ -333,16 +333,25 @@ gen_mfg_config() {
     local voucher_dir="$3"
     local owner_pub_key="$4"    # PEM string or file path
     local push_url="${5:-}"
-    local push_token="${6:-}"
-    local rv_host="${7:-}"
-    local rv_port="${8:-}"
-    local rv_scheme="${9:-http}"
+    local push_auth_key="${6:-}"  # Owner key for FDOKeyAuth (replaces static token)
+    local signover_key="${7:-}"   # Optional signover key
+    local rv_host="${8:-}"
+    local rv_port="${9:-}"
+    local rv_scheme="${10:-http}"
 
     local owner_key_block=""
     if [ -f "$owner_pub_key" ]; then
         owner_key_block=$(sed 's/^/      /' "$owner_pub_key")
     else
         owner_key_block=$(echo "$owner_pub_key" | sed 's/^/      /')
+    fi
+
+    # Use signover key if provided, otherwise use owner key
+    local signover_block=""
+    if [ -n "$signover_key" ] && [ -f "$signover_key" ]; then
+        signover_block=$(sed 's/^/      /' "$signover_key")
+    else
+        signover_block="$owner_key_block"
     fi
 
     local rv_block=""
@@ -360,15 +369,31 @@ gen_mfg_config() {
 
     local push_block=""
     if [ -n "$push_url" ]; then
-        push_block="  push_service:
+        if [ -n "$push_auth_key" ] && [ -f "$push_auth_key" ]; then
+            # FDOKeyAuth configuration
+            local auth_key_block=$(sed 's/^/      /' "$push_auth_key")
+            push_block="  push_service:
     enabled: true
     url: \"$push_url\"
-    auth_token: \"$push_token\"
+    mode: \"send_always\"
+    retain_files: true
+    delete_after_success: false
+    retry_interval: \"2s\"
+    max_attempts: 5
+    owner_key: |
+$auth_key_block"
+        else
+            # Legacy static token configuration
+            push_block="  push_service:
+    enabled: true
+    url: \"$push_url\"
+    auth_token: \"$push_auth_key\"
     mode: \"send_always\"
     retain_files: true
     delete_after_success: false
     retry_interval: \"2s\"
     max_attempts: 5"
+        fi
     fi
 
     cat <<EOCFG
@@ -403,7 +428,7 @@ voucher_management:
   owner_signover:
     mode: "static"
     static_public_key: |
-$owner_key_block
+$signover_block
 $push_block
 EOCFG
 }

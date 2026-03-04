@@ -266,6 +266,7 @@ This is the **primary security model** for the protocol. Mutual DID exchange is 
 ## 14. Code-Level Issues
 
 - [x] **PEM line wrapping**: Fixed — all PEM write paths now use `fdo.FormatVoucherPEM()` / `fdo.FormatVoucherCBORToPEM()`.
+- [x] **go-fdo-di doubled FDOKeyAuth path**: Fixed — `voucher_push_client.go` passed the full destination URL (including path) as `BaseURL` to `FDOKeyAuthClient`, then also set `PathPrefix` to `/api/v1/vouchers`, causing the path to double (`/api/v1/vouchers/api/v1/vouchers/auth/hello`). Fix: parse destination URL to split scheme+host from path. VM-side workaround (doubled-path handler registration) removed.
 - [ ] **`main.go:600-606`**: `keysExportCmd()` writes a hardcoded placeholder PEM key — not a real key export. Should export actual owner key from DB.
 - [ ] **`fdokeyauth_server.go:183`**: `session.ChallengeBytes` is set AFTER `s.Sessions.Create(session)` — the session stored in the map may not have `ChallengeBytes` updated since Go maps store copies of structs. This could cause hash continuity verification to fail if `Session` is stored by value. Current code works because `Session` is a pointer (`*Session`), but the comment "We need to re-fetch and update since Create already stored it" suggests uncertainty about this.
 
@@ -422,10 +423,12 @@ Located in `tests/supertest/`. Exercises all 5 FDO apps end-to-end.
 - [x] **Scenario 4**: Reseller Pull (Mfg → push → VM ← pull ← OBS → RV → Device)
 - [x] **Scenario 5**: Delegate Certs (delegate TO0 + delegate TO2)
 - [x] **Scenario 6**: DID + FDOKeyAuth owner-key + delegate pull + isolation negative test
-- [x] **Runtime validation**: All 6 scenarios pass against live builds (S1:8/8, S2:7/7, S3:8/8, S4:6/6, S5:7/7, S6:5/5)
+- [x] **Runtime validation**: All 10 scenarios pass against live builds (S1:8/8, S2:7/7, S3:8/8, S4:6/6, S5:7/7, S6:5/5, S8:9/9, S8E:19/19, S9:9/9, S10:9/9)
 - [ ] **Scenario 7**: VM pulls from Mfg (Mfg ←FDOKeyAuth← VM). **Expected failure** — Mfg (go-fdo-di) has no FDOKeyAuth holder support. Confirmed: HTTP 404 on FDOKeyAuth.Hello. Commented out of main runner until go-fdo-di is updated.
 - [x] **Scenario 8**: BMO Meta-URL Integration (inline + unsigned meta-URL + signed meta-URL + tampered-signature negative test). Uses go-fdo example server directly. Registered in `run-all-supertests.sh`.
 - [x] **Scenario 8 Enhanced**: BMO Meta-URL with go-fdo-meta-tool integration (full positive/negative testing including hash verification). Tests the new standalone meta tool creates compatible payloads.
+- [x] **Scenario 9**: Comprehensive FDOKeyAuth (push positive + pull positive/negative + handshake positive/negative). Tests FDOKeyAuth push from Mfg→VM, pull with owner-key scoping, and standalone handshake validation.
+- [x] **Scenario 10**: FDOKeyAuth Token Lifecycle (issuance, expiration with 10s TTL, rejection, re-auth, fabricated token rejection). 9 tests covering full token lifecycle.
 - [ ] **FDO v101 variant**: Add client-side FDO version 101 test variant
 
 ### Known Issues

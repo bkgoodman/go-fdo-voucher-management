@@ -176,11 +176,24 @@ func setupPushReceiverAuth(config *Config, mux *http.ServeMux, ownerKey crypto.S
 		},
 		RevealVoucherExistence: false,
 		IssueToken: func(callerKey protocol.PublicKey) (string, time.Time, error) {
+			// Enforce partner trust: only when suppliers are registered.
+			// If no suppliers exist, accept all keys (open mode).
+			if partnerStore != nil && partnerStore.HasSuppliers(context.Background()) {
+				cryptoPub, err := callerKey.Public()
+				if err != nil {
+					return "", time.Time{}, fmt.Errorf("failed to extract public key: %w", err)
+				}
+				_, trusted := partnerStore.IsTrustedSupplier(context.Background(), cryptoPub)
+				if !trusted {
+					return "", time.Time{}, fmt.Errorf("caller key is not a trusted supplier")
+				}
+			}
 			return tokenManager.IssueTokenForKey(callerKey, tokenTTL)
 		},
 	}
 
 	authServer.RegisterHandlers(mux, pushRoot)
+
 	slog.Info("push receiver: FDOKeyAuth endpoints registered",
 		"root", pushRoot,
 		"token_ttl", tokenTTL,

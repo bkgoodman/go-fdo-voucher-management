@@ -134,7 +134,7 @@ result.KeyFingerprint
 
 ### 5. Add FDOKeyAuth to push endpoints (new capability)
 
-If you have a push receiver and want to require FDOKeyAuth authentication:
+If you have a push receiver you must support FDOKeyAuth authentication:
 
 ```go
 // Create a FDOKeyAuth server for your push endpoint
@@ -155,6 +155,10 @@ pushAuthServer := &transfer.FDOKeyAuthServer{
 // Register on your push endpoint root
 pushAuthServer.RegisterHandlers(mux, "/api/v1/vouchers")
 ```
+
+Generally speaking - FDOKeyAuth can be use to _set-up_ authoization tokens
+that _may_ be otherwise set-up through other (manual or user driven) means
+by an application. But FDOKeyAuth is the _primary_ one intended for use.
 
 ### 6. Add FDOKeyAuth to push client (new capability)
 
@@ -177,6 +181,10 @@ dest := transfer.PushDestination{
     Token: result.SessionToken,
 }
 ```
+
+Clients *MUST* support FDOKeyAuth for Push operations. If the client _also_ supports
+static token auth that is acceptable, but *push* is the primary one required
+in the specification, and certinally the one we need to focus on integration test.
 
 ## Config Changes
 
