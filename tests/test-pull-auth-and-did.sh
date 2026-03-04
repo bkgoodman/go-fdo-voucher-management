@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test: Pull Authentication and DID Minting
-# Tests the PullAuth protocol endpoints and DID document serving.
+# Tests the FDOKeyAuth protocol endpoints and DID document serving.
 
 set -u
 
@@ -87,10 +87,10 @@ test_did_content_type() {
 }
 
 # ============================================================
-# Test 3: PullAuth Hello endpoint exists
+# Test 3: FDOKeyAuth Hello endpoint exists
 # ============================================================
-test_pullauth_hello_endpoint() {
-    log_info "Test 3: PullAuth Hello endpoint"
+test_fdokeyauth_hello_endpoint() {
+    log_info "Test 3: FDOKeyAuth Hello endpoint"
 
     # Send an empty body - should get 400 (bad request), not 404
     local http_code
@@ -100,19 +100,19 @@ test_pullauth_hello_endpoint() {
 
     # 400 means the endpoint exists but rejected our malformed request
     if [ "$http_code" = "400" ] || [ "$http_code" = "200" ]; then
-        log_success "PullAuth Hello endpoint exists (HTTP $http_code)"
+        log_success "FDOKeyAuth Hello endpoint exists (HTTP $http_code)"
         ((TESTS_PASSED++))
     else
-        log_error "PullAuth Hello endpoint not found (HTTP $http_code, expected 400)"
+        log_error "FDOKeyAuth Hello endpoint not found (HTTP $http_code, expected 400)"
         ((TESTS_FAILED++))
     fi
 }
 
 # ============================================================
-# Test 4: PullAuth Prove endpoint exists
+# Test 4: FDOKeyAuth Prove endpoint exists
 # ============================================================
-test_pullauth_prove_endpoint() {
-    log_info "Test 4: PullAuth Prove endpoint"
+test_fdokeyauth_prove_endpoint() {
+    log_info "Test 4: FDOKeyAuth Prove endpoint"
 
     local http_code
     http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
@@ -120,10 +120,10 @@ test_pullauth_prove_endpoint() {
         "$BASE_URL/api/v1/pull/auth/prove")
 
     if [ "$http_code" = "400" ] || [ "$http_code" = "401" ]; then
-        log_success "PullAuth Prove endpoint exists (HTTP $http_code)"
+        log_success "FDOKeyAuth Prove endpoint exists (HTTP $http_code)"
         ((TESTS_PASSED++))
     else
-        log_error "PullAuth Prove endpoint not found (HTTP $http_code, expected 400 or 401)"
+        log_error "FDOKeyAuth Prove endpoint not found (HTTP $http_code, expected 400 or 401)"
         ((TESTS_FAILED++))
     fi
 }
@@ -154,8 +154,8 @@ test_voucher_receiver_coexists() {
 # ============================================================
 run_test "DID Document Serving" test_did_document_serving
 run_test "DID Content-Type" test_did_content_type
-run_test "PullAuth Hello Endpoint" test_pullauth_hello_endpoint
-run_test "PullAuth Prove Endpoint" test_pullauth_prove_endpoint
+run_test "FDOKeyAuth Hello Endpoint" test_fdokeyauth_hello_endpoint
+run_test "FDOKeyAuth Prove Endpoint" test_fdokeyauth_prove_endpoint
 run_test "Voucher Receiver Coexists" test_voucher_receiver_coexists
 
 print_summary

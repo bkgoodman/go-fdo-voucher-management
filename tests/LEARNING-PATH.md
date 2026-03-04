@@ -85,7 +85,7 @@ The modern approach — services find each other automatically via DIDs.
 ./tests/test-e2e-did-push-pull.sh
 ```
 
-**Topics covered**: DID document resolution, automatic endpoint config, PullAuth authentication, push vs pull models.
+**Topics covered**: DID document resolution, automatic endpoint config, FDOKeyAuth authentication, push vs pull models.
 
 ---
 

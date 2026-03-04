@@ -100,15 +100,15 @@ Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher 
 - 🔲 **Server-Sent Events** (`GET {root}/stream`): Not implemented.
 - 📋 These are spec-defined but lower priority for initial implementation.
 
-## 8. PullAuth Protocol (Spec §9)
+## 8. FDOKeyAuth Protocol (Spec §9)
 
 ### 8.1 Wire Format
 
-- ✅ CBOR encoding for all PullAuth messages
+- ✅ CBOR encoding for all FDOKeyAuth messages
 - ✅ `Content-Type: application/cbor` set on requests and responses
-- ✅ **Content-Type validation**: Server rejects PullAuth requests with an explicit wrong `Content-Type` (returns `415 Unsupported Media Type`). Lenient if `Content-Type` is omitted.
+- ✅ **Content-Type validation**: Server rejects FDOKeyAuth requests with an explicit wrong `Content-Type` (returns `415 Unsupported Media Type`). Lenient if `Content-Type` is omitted.
 
-### 8.2 PullAuth.Hello (Spec §9.4)
+### 8.2 FDOKeyAuth.Hello (Spec §9.4)
 
 - ✅ POST `{root}/auth/hello`
 - ✅ Message structure: `[OwnerKey, DelegateChain, NoncePullRecipient_Prep, ProtocolVersion]`
@@ -117,43 +117,43 @@ Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher 
 - ✅ 16-byte nonce
 - ✅ ProtocolVersion = 1
 
-### 8.3 PullAuth.Challenge (Spec §9.4 Response)
+### 8.3 FDOKeyAuth.Challenge (Spec §9.4 Response)
 
 - ✅ Response structure: `[SessionId, NoncePullHolder_Prep, NoncePullRecipient, HashPullHello, HolderSignature, HolderInfo]`
 - ✅ Session ID (128-bit random)
 - ✅ Nonce echo
 - ✅ Hash continuity (SHA-256 of Hello CBOR bytes)
-- ✅ COSE_Sign1 HolderSignature with correct payload structure including `"PullAuth.Challenge"` type tag
+- ✅ COSE_Sign1 HolderSignature with correct payload structure including `"FDOKeyAuth.Challenge"` type tag
 - ✅ HolderInfo (optional, includes `voucher_count`)
 - ✅ **HolderInfo structure**: Spec defines it as a CBOR map with optional keys `"holder_id"`, `"voucher_count"`, `"algorithms"`. Fixed: custom `MarshalCBOR`/`UnmarshalCBOR` methods encode as CBOR map with text string keys.
 
-### 8.4 PullAuth.Prove (Spec §9.5)
+### 8.4 FDOKeyAuth.Prove (Spec §9.5)
 
 - ✅ POST `{root}/auth/prove`
 - ✅ Message structure: `[SessionId, NoncePullHolder, HashPullChallenge, RecipientSignature]`
-- ✅ COSE_Sign1 RecipientSignature with `"PullAuth.Prove"` type tag
+- ✅ COSE_Sign1 RecipientSignature with `"FDOKeyAuth.Prove"` type tag
 - ✅ Hash continuity verification
 - ✅ Nonce verification
 - ✅ Session single-use (Get removes session)
 
-### 8.5 PullAuth.Result (Spec §9.5 Response)
+### 8.5 FDOKeyAuth.Result (Spec §9.5 Response)
 
 - ✅ Structure: `[Status, SessionToken, TokenExpiresAt, OwnerKeyFingerprint, VoucherCount]`
 - ✅ `Status = "authenticated"`
 - ✅ `SessionToken` as tstr for Bearer header use
 - ✅ `TokenExpiresAt` as Unix timestamp
-- ✅ **OwnerKeyFingerprint**: Spec says "SHA-256 hash of the CBOR-encoded authenticated Owner Key". All three locations (PullAuth server, token store, DB fingerprinting) now use CBOR-based SHA-256 via `FingerprintProtocolKey()` / `FingerprintPublicKey()` in `key_utils.go`. Aligned.
+- ✅ **OwnerKeyFingerprint**: Spec says "SHA-256 hash of the CBOR-encoded authenticated Owner Key". All three locations (FDOKeyAuth server, token store, DB fingerprinting) now use CBOR-based SHA-256 via `FingerprintProtocolKey()` / `FingerprintPublicKey()` in `key_utils.go`. Aligned.
 - ✅ `VoucherCount` (optional)
 
 ### 8.6 Holder Signature Verification by Recipient (Spec §9.8.3)
 
-- ✅ **Client verifies HolderSignature**: `PullAuthClient.HolderPublicKey` field enables cryptographic verification of the Holder's COSE_Sign1 signature. When set, verifies signature + payload contents (type tag, nonces, hash, owner key). When nil, verification is skipped with a warning. CLI: `-holder-key <file>`.
+- ✅ **Client verifies HolderSignature**: `FDOKeyAuthClient.HolderPublicKey` field enables cryptographic verification of the Holder's COSE_Sign1 signature. When set, verifies signature + payload contents (type tag, nonces, hash, owner key). When nil, verification is skipped with a warning. CLI: `-holder-key <file>`.
 
 ### 8.7 Delegation Support (Spec §9.6)
 
 - ✅ Delegate chain validation via `fdo.VerifyDelegateChain()`
 - ✅ `fdo-ekt-permit-voucher-claim` permission OID (`1.3.6.1.4.1.45724.3.1.5`) checked
-- ✅ Delegate key signing in PullAuth.Prove
+- ✅ Delegate key signing in FDOKeyAuth.Prove
 - ✅ Leaf certificate public key used for signature verification
 - ✅ CSR workflow for cross-org delegate issuance (go-fdo delegate commands)
 
@@ -168,11 +168,11 @@ Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher 
 
 ## 9. Security Framework (Spec §10) — Defense-in-Depth
 
-The spec's §10 (Security Framework) describes defense-in-depth layers that are **additive** to the core DID-based security model (§12). Token-based auth (Model 1), mTLS (Model 2), and business logic validation (Model 4) are NOT required for secure voucher transfer. Model 3 (voucher signature validation) and Model 5 (Owner-Key-Based Auth / PullAuth) are the core mechanisms, implemented as part of the protocol itself.
+The spec's §10 (Security Framework) describes defense-in-depth layers that are **additive** to the core DID-based security model (§12). Token-based auth (Model 1), mTLS (Model 2), and business logic validation (Model 4) are NOT required for secure voucher transfer. Model 3 (voucher signature validation) and Model 5 (Owner-Key-Based Auth / FDOKeyAuth) are the core mechanisms, implemented as part of the protocol itself.
 
 ### 9.1 Core Protocol Authentication (REQUIRED)
 
-- ✅ Owner-Key-Based Authentication for pull (PullAuth, §9) — Model 5
+- ✅ Owner-Key-Based Authentication for pull (FDOKeyAuth, §9) — Model 5
 - ✅ **Voucher signature verification against manufacturer DID keys**: Spec §12.2 Case 2. Fully implemented: `PartnerStore` with trust DB and capability-scoped authorization (`can_supply_vouchers`/`can_receive_vouchers`), `IsTrustedSupplier()` verification in receiver handler (supply-only), `did:key` resolution (P-256/P-384), DID document refresh worker, partner CLI commands (`add/list/show/remove/export` with `-supply`/`-receive` flags), config-file bootstrap (`partners:` section), multi-partner destination resolution via fingerprint lookup (receive-only).
 - ✅ Token-based (Bearer) authentication for push — works as defense-in-depth layer
 
@@ -194,7 +194,7 @@ The spec's §10 (Security Framework) describes defense-in-depth layers that are 
 
 ### 9.5 Error Response Format (Spec §10.2)
 
-- ⚠️ **Error format**: Spec defines structured error with `error`, `message`, `error_code`, `timestamp`, `request_id`. PullAuth and Pull API errors include `request_id`. Push receiver errors include `request_id` and `timestamp`. Still missing: `error_code` field across all error responses.
+- ⚠️ **Error format**: Spec defines structured error with `error`, `message`, `error_code`, `timestamp`, `request_id`. FDOKeyAuth and Pull API errors include `request_id`. Push receiver errors include `request_id` and `timestamp`. Still missing: `error_code` field across all error responses.
 
 ### 9.6 Security Monitoring (Spec §10.7)
 
@@ -267,7 +267,7 @@ This is the **primary security model** for the protocol. Mutual DID exchange is 
 
 - [x] **PEM line wrapping**: Fixed — all PEM write paths now use `fdo.FormatVoucherPEM()` / `fdo.FormatVoucherCBORToPEM()`.
 - [ ] **`main.go:600-606`**: `keysExportCmd()` writes a hardcoded placeholder PEM key — not a real key export. Should export actual owner key from DB.
-- [ ] **`pullauth_server.go:183`**: `session.ChallengeBytes` is set AFTER `s.Sessions.Create(session)` — the session stored in the map may not have `ChallengeBytes` updated since Go maps store copies of structs. This could cause hash continuity verification to fail if `Session` is stored by value. Current code works because `Session` is a pointer (`*Session`), but the comment "We need to re-fetch and update since Create already stored it" suggests uncertainty about this.
+- [ ] **`fdokeyauth_server.go:183`**: `session.ChallengeBytes` is set AFTER `s.Sessions.Create(session)` — the session stored in the map may not have `ChallengeBytes` updated since Go maps store copies of structs. This could cause hash continuity verification to fail if `Session` is stored by value. Current code works because `Session` is a pointer (`*Session`), but the comment "We need to re-fetch and update since Create already stored it" suggests uncertainty about this.
 
 ---
 
@@ -281,7 +281,7 @@ These are gaps in the spec's **core** security model (§12) — the mechanisms t
 - [x] **Emit `FDOVoucherHolder` DID service entry** — Wired into `NewDocument()`, `Mint()`, and `did_minting_setup.go` with auto-construction from pull service config.
 - [x] Return `application/x-fdo-voucher` Content-Type on voucher downloads (§8.2, §15)
 - [x] Add `Content-Disposition` header on voucher downloads (§8.2)
-- [x] Validate `Content-Type: application/cbor` on PullAuth requests (§9.2 MUST)
+- [x] Validate `Content-Type: application/cbor` on FDOKeyAuth requests (§9.2 MUST)
 - [x] Classify transient vs permanent HTTP errors in retry logic (§13)
 
 ### Medium Priority — Spec Compliance (SHOULD items)
@@ -295,7 +295,7 @@ These are gaps in the spec's **core** security model (§12) — the mechanisms t
 - [x] Add `request_id` to error responses (§10.2)
 - [x] Distinguish 401 vs 403 error responses (§7.1)
 - [x] Add `X-FDO-Version` header support (§7.1) — middleware adds `X-FDO-Version: 1.0` to all responses
-- [x] Add HolderSignature verification support in PullAuth client using Holder's DID key (§9.8.3)
+- [x] Add HolderSignature verification support in FDOKeyAuth client using Holder's DID key (§9.8.3)
 - [x] Add `tlsCertificateAuthority` field to `Service` struct in `did/document.go` (§12.5.3)
 - [x] Implement `fields` query parameter for Pull API list endpoint (§8.1) — supports voucher_id, serial_number, model_number, device_info, created_at
 
@@ -318,12 +318,12 @@ These are defense-in-depth layers (§12.7), optional spec features, or future en
 - [ ] Implement TLS at the server level (not just reverse-proxy)
 - [ ] Add HSTS headers
 - [ ] Implement `status` filter in pull list query (§8.1)
-- [ ] Per-source-IP and per-Owner-Key PullAuth session limits (§9.8.4)
+- [ ] Per-source-IP and per-Owner-Key FDOKeyAuth session limits (§9.8.4)
 - [ ] Fix `keysExportCmd()` to export real owner key, not placeholder (code issue)
 - [ ] Add `manufacturer` field to transmission record persistence (§7.1)
 - [ ] Add `timestamp` form field parsing in push receiver (§7.1)
 - [ ] Add `202 Accepted` response for async pipeline processing (§7.1)
-- [ ] **Push challenge-response authentication** — lightweight challenge-response for push endpoints (analogous to PullAuth) so Supplier proves key possession before uploading vouchers. Improves DDoS resilience by rejecting unauthorized push attempts before receiving/parsing the full voucher. Spec §17 Future Enhancements.
+- [ ] **Push challenge-response authentication** — lightweight challenge-response for push endpoints (analogous to FDOKeyAuth) so Supplier proves key possession before uploading vouchers. Improves DDoS resilience by rejecting unauthorized push attempts before receiving/parsing the full voucher. Spec §17 Future Enhancements.
 
 ---
 
@@ -332,7 +332,7 @@ These are defense-in-depth layers (§12.7), optional spec features, or future en
 All original quick-win batches have been completed ✅:
 
 - ~~**Batch 1**: Download Response Headers~~ — Content-Type, Content-Disposition, X-FDO-Checksum, Content-Length
-- ~~**Batch 2**: PullAuth Content-Type Validation~~ — 415 for wrong Content-Type
+- ~~**Batch 2**: FDOKeyAuth Content-Type Validation~~ — 415 for wrong Content-Type
 - ~~**Batch 3**: FDOVoucherHolder DID Service Entry~~ — wired into NewDocument(), Mint(), did_minting_setup.go
 - ~~**Batch 4**: Error Response Cleanup~~ — request_id in all errors, 401 vs 403 distinction
 - ~~**Batch 5**: Retry Logic Hardening~~ — exponential backoff, jitter, Retry-After, transient/permanent classification
@@ -342,17 +342,17 @@ All original quick-win batches have been completed ✅:
 
 - ~~⚠️ **Partner CLI commands + config bootstrap**~~ — DONE: `partners add/list/show/remove/export` CLI with capability flags (`-supply`, `-receive`). Config bootstrap via `partners:` section (`can_supply`/`can_receive` fields). DID resolution on add.
 - ~~⚠️ **Multi-partner destination resolution**~~ — DONE: `VoucherDestinationResolver` queries `PartnerStore` by owner key fingerprint. Only `can_receive_vouchers` partners are routed to. Only `can_supply_vouchers` partners are trusted as voucher sources (`IsTrustedSupplier`). Priority: callback → partner → DID → static.
-- ~~🔲 **CLI command reference**~~ — DONE: [CLI_REFERENCE.md](CLI_REFERENCE.md) — complete reference for all subcommands (`server`, `vouchers`, `tokens`, `partners`, `pull`, `pullauth`, `generate`, `keys`), flags, and examples. README updated to reference it.
+- ~~🔲 **CLI command reference**~~ — DONE: [CLI_REFERENCE.md](CLI_REFERENCE.md) — complete reference for all subcommands (`server`, `vouchers`, `tokens`, `partners`, `pull`, `fdokeyauth`, `generate`, `keys`), flags, and examples. README updated to reference it.
 - ~~🔲 **Configuration reference**~~ — DONE: [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) — complete reference for all `config.yaml` sections, fields, types, defaults, and usage notes including recipes. README updated to reference it.
 
-### ~~🔴~~ ✅ Key Persistence + Holder Key Unification — DONE
+### ~~🔴~~ ✅ Key Persistence + Server Key Unification — DONE
 
-~~**⚠️ REQUIRED BEFORE PRODUCTION**~~ — Fixed. Owner key now persists across restarts and PullAuth uses the same key.
+~~**⚠️ REQUIRED BEFORE PRODUCTION**~~ — Fixed. Owner key now persists across restarts and FDOKeyAuth uses the same key.
 
 **What was fixed:**
 
 1. ~~**🐛 No key persistence**~~ — ✅ `loadOrGenerateOwnerKey()` in `did_minting_setup.go` supports: `import_key_file` (load PEM), `first_time_init` + `key_export_path` (generate once, persist, reload), ephemeral fallback (with warning).
-2. ~~**🐛 PullAuth uses a separate key**~~ — ✅ `setupDIDMinting()` returns `crypto.Signer`, passed to `setupPullService()` as the unified `HolderKey`.
+2. ~~**🐛 FDOKeyAuth uses a separate key**~~ — ✅ `setupDIDMinting()` returns `crypto.Signer`, passed to `setupPullService()` as the unified `ServerKey`.
 3. ~~**DID minting refactor**~~ — ✅ Key loading separated from DID document construction. Uses `did.NewDocument()` with the loaded public key.
 
 **Tests:** Unit tests (`TestLoadOrGenerateOwnerKey_*`, 7 cases) + integration test (`test-key-persistence.sh`, 10 assertions).
@@ -421,16 +421,16 @@ Located in `tests/supertest/`. Exercises all 5 FDO apps end-to-end.
 - [x] **Scenario 3**: Reseller Push (Mfg → push → VM → push → OBS → RV → Device)
 - [x] **Scenario 4**: Reseller Pull (Mfg → push → VM ← pull ← OBS → RV → Device)
 - [x] **Scenario 5**: Delegate Certs (delegate TO0 + delegate TO2)
-- [x] **Scenario 6**: DID + PullAuth owner-key + delegate pull + isolation negative test
+- [x] **Scenario 6**: DID + FDOKeyAuth owner-key + delegate pull + isolation negative test
 - [x] **Runtime validation**: All 6 scenarios pass against live builds (S1:8/8, S2:7/7, S3:8/8, S4:6/6, S5:7/7, S6:5/5)
-- [ ] **Scenario 7**: VM pulls from Mfg (Mfg ←PullAuth← VM). **Expected failure** — Mfg (go-fdo-di) has no PullAuth holder support. Confirmed: HTTP 404 on PullAuth.Hello. Commented out of main runner until go-fdo-di is updated.
+- [ ] **Scenario 7**: VM pulls from Mfg (Mfg ←FDOKeyAuth← VM). **Expected failure** — Mfg (go-fdo-di) has no FDOKeyAuth holder support. Confirmed: HTTP 404 on FDOKeyAuth.Hello. Commented out of main runner until go-fdo-di is updated.
 - [x] **Scenario 8**: BMO Meta-URL Integration (inline + unsigned meta-URL + signed meta-URL + tampered-signature negative test). Uses go-fdo example server directly. Registered in `run-all-supertests.sh`.
 - [x] **Scenario 8 Enhanced**: BMO Meta-URL with go-fdo-meta-tool integration (full positive/negative testing including hash verification). Tests the new standalone meta tool creates compatible payloads.
 - [ ] **FDO v101 variant**: Add client-side FDO version 101 test variant
 
 ### Known Issues
 
-- [x] **PullAuth fingerprint consistency**: Fixed in `go-fdo/did/document.go` — `FingerprintProtocolKey` now normalizes via `crypto.PublicKey` before hashing, making fingerprints encoding-agnostic. Spec updated (§9.8). Appnote: `go-fdo/APPNOTE-FINGERPRINT-NORMALIZATION.md`.
+- [x] **FDOKeyAuth fingerprint consistency**: Fixed in `go-fdo/did/document.go` — `FingerprintProtocolKey` now normalizes via `crypto.PublicKey` before hashing, making fingerprints encoding-agnostic. Spec updated (§9.8). Appnote: `go-fdo/APPNOTE-FINGERPRINT-NORMALIZATION.md`.
 - [ ] **Scenario 6 sub-tests B/C**: Delegate-based pull and owner-scoped isolation tests are non-critical (warn-only). Delegate pull requires OBS delegate CLI integration with VM's owner key.
 
 ### Blocked on library additions

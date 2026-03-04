@@ -338,7 +338,7 @@ did_cache:
   enabled: false
 ```
 
-### PullAuth Security
+### FDOKeyAuth Security
 
 ```yaml
 # Strict session management
@@ -402,7 +402,7 @@ curl -s http://localhost:8084/api/v1/vouchers
 grep static_did config-e2e-first-live.yaml
 ```
 
-### PullAuth Authentication Issues
+### FDOKeyAuth Authentication Issues
 
 ```yaml
 # Check pull service status

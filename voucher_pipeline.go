@@ -104,7 +104,7 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 	}
 
 	// If we resolved a next owner key, compute its fingerprint for Pull API scoping.
-	// Uses CBOR-based SHA-256 matching PullAuth.Result's OwnerKeyFingerprint (spec §9.8).
+	// Uses CBOR-based SHA-256 matching FDOKeyAuth.Result's KeyFingerprint (spec §10).
 	if nextOwner != nil {
 		ownerKeyFingerprint = FingerprintPublicKeyHex(nextOwner)
 		slog.Info("pipeline: computed destination owner key fingerprint",

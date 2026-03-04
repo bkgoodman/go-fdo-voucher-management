@@ -1,6 +1,6 @@
 # End-to-End FDO Voucher Supply Chain Tutorial
 
-This tutorial walks you through running two `fdo-voucher-manager` instances that simulate a manufacturer-to-customer voucher supply chain. You'll execute real commands, observe DID-based discovery, voucher sign-over, push delivery, and PullAuth authentication.
+This tutorial walks you through running two `fdo-voucher-manager` instances that simulate a manufacturer-to-customer voucher supply chain. You'll execute real commands, observe DID-based discovery, voucher sign-over, push delivery, and FDOKeyAuth authentication.
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ After completing this tutorial, you will understand:
 - How **DID documents** serve as digital business cards containing keys and service endpoints
 - How **voucher sign-over** enables secure transfer of device ownership
 - When to use **push** vs **pull** mechanisms in supply chains
-- How **PullAuth** provides cryptographic authentication for voucher retrieval
+- How **FDOKeyAuth** provides cryptographic authentication for voucher retrieval
 
 ## Real-World Scenario
 
@@ -261,12 +261,12 @@ grep "localhost:8084" tests/data/first.log
 
 **Why it matters**: This is the core supply chain operation — automatic, secure transfer of device ownership between organizations, driven entirely by DID discovery.
 
-### Step 7: Try PullAuth Authentication (Alternative Transfer)
+### Step 7: Try FDOKeyAuth Authentication (Alternative Transfer)
 
-Push is one way to transfer vouchers. PullAuth lets the *customer* initiate retrieval instead. The customer authenticates to the manufacturer using a cryptographic handshake:
+Push is one way to transfer vouchers. FDOKeyAuth lets the *customer* initiate retrieval instead. The customer authenticates to the manufacturer using a cryptographic handshake:
 
 ```bash
-./fdo-voucher-manager pullauth \
+./fdo-voucher-manager fdokeyauth \
     -url http://localhost:8083 \
     -key-type ec384 \
     -json
@@ -278,7 +278,7 @@ You should see JSON output containing:
 - `session_token`: a token the customer can use to pull vouchers
 - `owner_key_fingerprint`: identifies which key was used
 
-**Why it matters**: PullAuth gives customers control over when they retrieve vouchers, rather than waiting for push. This is useful for:
+**Why it matters**: FDOKeyAuth gives customers control over when they retrieve vouchers, rather than waiting for push. This is useful for:
 
 - Just-in-time inventory management
 - Bandwidth-constrained environments
@@ -286,7 +286,7 @@ You should see JSON output containing:
 
 ### Step 8: Pull Vouchers (Auth + List + Download)
 
-The `pull` subcommand combines authentication, listing, and downloading into a single operation. It uses **Type-5 (PullAuth) challenge-response authentication** — the customer proves possession of its DID-minted owner key, and the manufacturer only returns vouchers that were signed over to that specific key.
+The `pull` subcommand combines authentication, listing, and downloading into a single operation. It uses **Type-5 (FDOKeyAuth) challenge-response authentication** — the customer proves possession of its DID-minted owner key, and the manufacturer only returns vouchers that were signed over to that specific key.
 
 **Configuration context:**
 
@@ -355,7 +355,7 @@ Each voucher is saved as a `.fdoov` file named by its GUID.
 **How owner-key scoping works:**
 
 1. When a voucher is pushed to the manufacturer, the manufacturer extracts the voucher's current `OwnerPublicKey()` and stores its SHA-256 fingerprint in the `owner_key_fingerprint` column of the `voucher_transmissions` database table
-2. When a customer authenticates via PullAuth, the manufacturer verifies the customer's signature and issues a session token bound to the customer's key fingerprint
+2. When a customer authenticates via FDOKeyAuth, the manufacturer verifies the customer's signature and issues a session token bound to the customer's key fingerprint
 3. When the customer lists or downloads vouchers, the manufacturer filters by `owner_key_fingerprint` — only returning vouchers that belong to this specific owner
 
 **Why it matters**: The pull model supports several real-world scenarios:
@@ -416,7 +416,7 @@ This step proves that the Pull API enforces owner-key scoping. Two different key
 # Expected: voucher_count = 0
 ```
 
-The unrelated key can authenticate (PullAuth succeeds for any valid key), but the Pull API returns zero vouchers because no vouchers in the database have an `owner_key_fingerprint` matching this key.
+The unrelated key can authenticate (FDOKeyAuth succeeds for any valid key), but the Pull API returns zero vouchers because no vouchers in the database have an `owner_key_fingerprint` matching this key.
 
 **Why it matters**: This is the multi-tenant security guarantee. In a real deployment, a manufacturer may hold vouchers for many different customers. Each customer can only list and download vouchers that were explicitly signed over to their owner key. This prevents:
 
@@ -471,7 +471,7 @@ pkill -f fdo-voucher-manager
 | Generate voucher | Factory manufactures device | Create device ownership record |
 | Push to Manufacturer | Factory sends voucher to manufacturer | Aggregate vouchers from multiple factories |
 | DID-based push | Manufacturer forwards to customer | Automatic delivery to customer |
-| PullAuth | Customer authenticates to manufacturer | Prove ownership key for voucher retrieval |
+| FDOKeyAuth | Customer authenticates to manufacturer | Prove ownership key for voucher retrieval |
 | Pull Vouchers | Customer lists and downloads vouchers | On-demand voucher retrieval with filtering |
 
 ## When to Use Push vs Pull
@@ -489,7 +489,7 @@ pkill -f fdo-voucher-manager
 - Factory → Manufacturer (immediate aggregation)
 - Manufacturer → Customer (just-in-time delivery)
 
-### Pull Model (PullAuth + Pull)
+### Pull Model (FDOKeyAuth + Pull)
 
 **Use when**:
 

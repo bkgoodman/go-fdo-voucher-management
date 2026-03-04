@@ -66,7 +66,7 @@ sqlite3 voucher_manager.db ".backup /backups/voucher_manager_$(date +%Y%m%d).db"
 
 ### Current Behavior
 
-There is **one owner key** that serves three purposes: voucher signing (extending the ownership chain), DID identity (the public key in the DID document), and PullAuth Holder signing (proving to Recipients that this server is the legitimate Holder). This matches the pattern in the DI project and onboarding service.
+There is **one owner key** that serves three purposes: voucher signing (extending the ownership chain), DID identity (the public key in the DID document), and FDOKeyAuth Holder signing (proving to Recipients that this server is the legitimate Holder). This matches the pattern in the DI project and onboarding service.
 
 The key is loaded via `loadOrGenerateOwnerKey()` in `did_minting_setup.go` with three modes:
 
@@ -77,7 +77,7 @@ The key is loaded via `loadOrGenerateOwnerKey()` in `did_minting_setup.go` with 
 The loaded key is shared with:
 
 - `signingService.OwnerSigner` — for voucher extension signing
-- `PullAuthServer.HolderKey` — for PullAuth challenge signing (same key, not a separate ephemeral one)
+- `FDOKeyAuthServer.ServerKey` — for FDOKeyAuth challenge signing (same key, not a separate ephemeral one)
 - `did.NewDocument()` — for the public key in the DID document
 
 ### ⚠️ Production Configuration
@@ -173,10 +173,10 @@ Partners configured with `auth_token` (for push authentication to downstream ser
 
 ### Pull Service Session Tokens
 
-PullAuth session tokens are stored in-memory (`pullTokenStore`) and are lost on restart. This is acceptable — clients simply re-authenticate. However:
+FDOKeyAuth session tokens are stored in-memory (`pullTokenStore`) and are lost on restart. This is acceptable — clients simply re-authenticate. However:
 
 - **Token TTL** — Default is 1 hour. For high-security environments, reduce this.
-- **Session TTL** — Default is 60 seconds for the PullAuth handshake. This is appropriate.
+- **Session TTL** — Default is 60 seconds for the FDOKeyAuth handshake. This is appropriate.
 - **Max sessions** — Default is 1000 concurrent sessions. Size this based on expected concurrent pull clients.
 
 ---
@@ -188,7 +188,7 @@ PullAuth session tokens are stored in-memory (`pullTokenStore`) and are lost on 
 The current architecture is single-instance:
 
 - SQLite database is file-local
-- In-memory PullAuth session store is not shared
+- In-memory FDOKeyAuth session store is not shared
 - In-memory pull token store is not shared
 - Retry worker runs as a single goroutine
 - DID key is generated per-instance
@@ -227,7 +227,7 @@ The application uses Go's `slog` structured logger. Key events to monitor:
 - **`voucher transmission delivered`** / **`voucher transmission attempt failed`** — Push outcomes
 - **`partner bootstrap`** — Partner enrollment on startup
 - **`DID minting`** — DID document generation
-- **`PullAuth`** — Authentication handshake events
+- **`FDOKeyAuth`** — Authentication handshake events
 
 Enable debug logging (`-debug` flag or `debug: true` in config) for troubleshooting, but disable it in production — it logs full DID documents and protocol details.
 
@@ -243,7 +243,7 @@ The application does not currently expose a health endpoint. For production:
 - **Voucher reception rate** — Vouchers received per unit time
 - **Transmission success/failure rate** — Push delivery outcomes
 - **Retry queue depth** — Number of pending/failed transmissions (`vouchers list -status pending`)
-- **PullAuth authentication rate** — Successful/failed pull authentications
+- **FDOKeyAuth authentication rate** — Successful/failed pull authentications
 - **Partner DID refresh failures** — Stale DID documents may indicate network issues
 - **Database size** — SQLite file growth over time
 - **Disk usage** — Voucher file directory growth

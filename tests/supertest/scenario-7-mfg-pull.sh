@@ -6,10 +6,10 @@
 #
 # Tests the pull path where VM acts as the puller and Mfg acts as
 # the holder. This is the reverse of the typical push flow:
-#   Mfg (holder) ←(pull/PullAuth)← VM (puller)
+#   Mfg (holder) ←(pull/FDOKeyAuth)← VM (puller)
 #
 # This scenario is expected to FAIL until the Manufacturing Station
-# (go-fdo-di) is updated to include PullAuth holder support and the
+# (go-fdo-di) is updated to include FDOKeyAuth holder support and the
 # go-fdo library fingerprint normalization fix.
 #
 # PORTS: Mfg=9701, VM=9702
@@ -36,11 +36,11 @@ trap cleanup EXIT
 
 banner "Scenario 7: VM Pulls Vouchers from Mfg (DI Service)"
 narrate "This scenario tests whether the Manufacturing Station can"
-narrate "act as a PullAuth Holder — allowing the Voucher Manager"
+narrate "act as a FDOKeyAuth Holder — allowing the Voucher Manager"
 narrate "to authenticate and pull vouchers using its owner key."
 narrate ""
 narrate "EXPECTED: This scenario will FAIL until go-fdo-di adds"
-narrate "PullAuth holder support (and uses the normalized fingerprint"
+narrate "FDOKeyAuth holder support (and uses the normalized fingerprint"
 narrate "library). This is a canary test."
 
 # ============================================================
@@ -104,7 +104,7 @@ phase "Initialize & Start Manufacturing Station (Holder)"
 # ============================================================
 narrate "Mfg is configured to sign vouchers over to VM's key."
 narrate "Push is DISABLED — Mfg holds the vouchers. VM will"
-narrate "attempt to pull them via PullAuth."
+narrate "attempt to pull them via FDOKeyAuth."
 
 # No push_url, no push_token — Mfg holds vouchers locally
 gen_mfg_config "$PORT_MFG" "$MFG_DB" "$MFG_VOUCHERS" \
@@ -141,15 +141,15 @@ show_file_listing "$MFG_VOUCHERS" "Mfg Vouchers (held locally)"
 assert_dir_not_empty "$MFG_VOUCHERS" "*.fdoov" "Mfg created and holds voucher"
 
 # ============================================================
-phase "VM Pulls Vouchers from Mfg (PullAuth Owner-Key)"
+phase "VM Pulls Vouchers from Mfg (FDOKeyAuth Owner-Key)"
 # ============================================================
-narrate "VM authenticates to Mfg using PullAuth (Type-5)."
+narrate "VM authenticates to Mfg using FDOKeyAuth (Type-5)."
 narrate "VM proves it holds the owner key that the vouchers were"
 narrate "signed over to. Mfg should verify this and return vouchers."
 narrate ""
 narrate ">>> EXPECTED TO FAIL: Mfg (go-fdo-di) does not yet have"
-narrate ">>> PullAuth holder endpoints. The pull command will likely"
-narrate ">>> get a 404 or connection error on the PullAuth endpoint."
+narrate ">>> FDOKeyAuth holder endpoints. The pull command will likely"
+narrate ">>> get a 404 or connection error on the FDOKeyAuth endpoint."
 
 PULL_DIR="$ARTIFACT_DIR/vm_pulled"
 PULL_LOG="$ARTIFACT_DIR/pull_cmd.log"
@@ -177,12 +177,12 @@ if [ -n "$PULL_OUTPUT" ]; then
 fi
 
 if [ "$PULL_EXIT" -eq 0 ] && [ "$PULL_DOWNLOADED" -gt 0 ]; then
-    log_success "VM pulled $PULL_DOWNLOADED voucher(s) from Mfg via PullAuth"
+    log_success "VM pulled $PULL_DOWNLOADED voucher(s) from Mfg via FDOKeyAuth"
     ((TESTS_RUN++)); ((TESTS_PASSED++))
     show_file_listing "$PULL_DIR" "VM Pulled Vouchers"
 else
     log_error "VM failed to pull vouchers from Mfg (exit=$PULL_EXIT, downloaded=$PULL_DOWNLOADED)"
-    log_warn ">>> This is EXPECTED until go-fdo-di adds PullAuth holder support"
+    log_warn ">>> This is EXPECTED until go-fdo-di adds FDOKeyAuth holder support"
     log_warn ">>> and uses the go-fdo library with fingerprint normalization."
     ((TESTS_RUN++)); ((TESTS_FAILED++))
 fi
@@ -193,15 +193,15 @@ phase "Verification Summary"
 narrate "Scenario 7: VM pull from Mfg"
 narrate ""
 narrate "This scenario tests the supply chain path:"
-narrate "  Mfg (holder) ←(PullAuth)← VM (puller)"
+narrate "  Mfg (holder) ←(FDOKeyAuth)← VM (puller)"
 narrate ""
 if [ "$PULL_EXIT" -eq 0 ] && [ "$PULL_DOWNLOADED" -gt 0 ]; then
-    narrate "RESULT: PASS — Mfg supports PullAuth and VM pulled successfully."
+    narrate "RESULT: PASS — Mfg supports FDOKeyAuth and VM pulled successfully."
 else
-    narrate "RESULT: EXPECTED FAILURE — Mfg does not yet support PullAuth."
+    narrate "RESULT: EXPECTED FAILURE — Mfg does not yet support FDOKeyAuth."
     narrate "To fix: Update go-fdo-di to:"
     narrate "  1. Use the go-fdo library with FingerprintProtocolKey normalization"
-    narrate "  2. Register PullAuth handler endpoints"
+    narrate "  2. Register FDOKeyAuth handler endpoints"
     narrate "  3. Implement voucher pull store (ListByOwner, GetVoucher)"
 fi
 

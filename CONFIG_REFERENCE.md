@@ -258,14 +258,14 @@ Voucher retention policy.
 
 ## `pull_service`
 
-Inbound pull — serve vouchers to authenticated recipients via the PullAuth protocol.
+Inbound pull — serve vouchers to authenticated recipients via the FDOKeyAuth protocol.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled` | bool | `false` | Enable PullAuth + Pull API endpoints |
-| `session_ttl` | duration | `60s` | PullAuth session lifetime (time to complete the 3-step handshake) |
-| `max_sessions` | int | `1000` | Maximum concurrent PullAuth sessions |
-| `token_ttl` | duration | `1h` | Bearer token lifetime after successful PullAuth authentication |
+| `enabled` | bool | `false` | Enable FDOKeyAuth + Pull API endpoints |
+| `session_ttl` | duration | `60s` | FDOKeyAuth session lifetime (time to complete the 3-step handshake) |
+| `max_sessions` | int | `1000` | Maximum concurrent FDOKeyAuth sessions |
+| `token_ttl` | duration | `1h` | Bearer token lifetime after successful FDOKeyAuth authentication |
 | `reveal_voucher_existence` | bool | `false` | If `false`, unauthenticated requests to pull endpoints return generic errors (no information leakage about voucher existence) |
 
 ### Security notes

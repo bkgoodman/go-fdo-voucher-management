@@ -24,7 +24,7 @@ There is **one owner key** that serves all three purposes:
 |---------|-------------|--------|--------|
 | **Voucher signing** | Signs voucher entries when extending ownership chain (`fdo.ExtendVoucher`) | `loadOrGenerateOwnerKey()` → `signingService.OwnerSigner` | ✅ Persistent |
 | **DID identity** | Published in the DID document at `/.well-known/did.json`; partners use it to verify our identity | `loadOrGenerateOwnerKey()` → `did.NewDocument()` | ✅ Persistent |
-| **PullAuth Holder signing** | Signs PullAuth Challenge to prove to Recipients that this server is the legitimate Holder | `setupDIDMinting()` → `setupPullService(ownerKey)` | ✅ Unified |
+| **FDOKeyAuth Holder signing** | Signs FDOKeyAuth Challenge to prove to Recipients that this server is the legitimate Holder | `setupDIDMinting()` → `setupPullService(ownerKey)` | ✅ Unified |
 
 All three are the same logical identity — "I am the owner/holder of these vouchers." This matches the pattern in the DI project (`go-fdo-di`) and onboarding service (`go-fdo-onboarding-service`), where the manufacturer/owner key is generated once on first run and persisted as a credential.
 
@@ -143,22 +143,22 @@ Cloud KMS support (AWS/Azure/GCP/Vault) could be added incrementally as separate
 
 ## Implementation Plan
 
-### Phase 1: Key Persistence + Holder Key Unification — ✅ DONE
+### Phase 1: Key Persistence + Server Key Unification — ✅ DONE
 
-**Goal:** Owner key survives restarts, PullAuth uses the same key.
+**Goal:** Owner key survives restarts, FDOKeyAuth uses the same key.
 
 1. ✅ **Key persistence** — `loadOrGenerateOwnerKey()` in `did_minting_setup.go` implements three modes:
    - `import_key_file` → load from PEM file
    - `first_time_init` + `key_export_path` → generate on first run, save, load on subsequent starts
    - Ephemeral fallback with warning
 
-2. ✅ **Holder key unification** — `setupDIDMinting()` returns `crypto.Signer`, passed to `setupPullService()` as the `HolderKey`.
+2. ✅ **Holder key unification** — `setupDIDMinting()` returns `crypto.Signer`, passed to `setupPullService()` as the `ServerKey`.
 
 3. ✅ **DID minting refactor** — `setupDIDMinting()` now separates:
    - Key loading (`loadOrGenerateOwnerKey`) → returns `crypto.Signer`
    - DID document construction (`did.NewDocument()` from public key)
    - DID document serving (HTTP handler)
-   - Returns the signer for use by both `signingService.OwnerSigner` and `PullAuthServer.HolderKey`
+   - Returns the signer for use by both `signingService.OwnerSigner` and `FDOKeyAuthServer.ServerKey`
 
 4. ✅ **Tests:**
    - Unit tests: `TestLoadOrGenerateOwnerKey_*` (7 tests covering import, first-time-init, ephemeral, precedence, round-trip)

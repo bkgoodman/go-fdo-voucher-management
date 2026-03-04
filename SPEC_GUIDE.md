@@ -28,13 +28,13 @@ Defines configurable base URLs for push and pull endpoints. Instead of hardcodin
 
 The REST APIs. Section 7 is push (POST a voucher, query status, list, download). Section 8 is pull (list vouchers, download, plus subscription/notification options). Standard REST with pagination, filtering, and the usual HTTP status codes.
 
-### Section 9 — Pull Authentication (PullAuth)
+### Section 9 — Pull Authentication (FDOKeyAuth)
 
 This is the interesting one. Instead of pre-shared tokens, the pull API uses a **TO2-like challenge-response protocol** where your Owner Key IS the credential. If the voucher was signed over to your key, you can prove you hold that key and pull your vouchers — zero provisioning. Also supports **Delegate Certificates** so authorized delegates can pull on behalf of an Owner.
 
 ## Sections You Can Skip (Until You Need Them)
 
-- **Section 10 (Security Framework)** — Catalog of security models (tokens, mTLS, voucher signatures, business logic, owner-key auth). Useful reference material, but Section 12 explains that only voucher signatures and PullAuth are core — the rest are optional defense-in-depth layers for API gateways and WAFs.
+- **Section 10 (Security Framework)** — Catalog of security models (tokens, mTLS, voucher signatures, business logic, owner-key auth). Useful reference material, but Section 12 explains that only voucher signatures and FDOKeyAuth are core — the rest are optional defense-in-depth layers for API gateways and WAFs.
 
 - **Section 11 (Voucher Sequestering)** — Quarantine workflow for risk-based voucher acceptance. Interesting for high-security deployments; not needed to understand the protocol.
 

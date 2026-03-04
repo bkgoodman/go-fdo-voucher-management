@@ -18,7 +18,7 @@ import (
 	"github.com/fido-device-onboard/go-fdo/transfer"
 )
 
-// runPullCommand performs a PullAuth handshake and then lists/downloads vouchers.
+// runPullCommand performs a FDOKeyAuth handshake and then lists/downloads vouchers.
 func runPullCommand() {
 	fs := flag.NewFlagSet("pull", flag.ExitOnError)
 	holderURL := fs.String("url", "", "Holder base URL (e.g., http://localhost:8083)")
@@ -46,7 +46,7 @@ func runPullCommand() {
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
-	client := buildPullAuthClient(*holderURL, *keyFile, *keyType, *ownerPubFile, *delegateKeyFile, *delegateChainFile, *holderKeyFile)
+	client := buildFDOKeyAuthClient(*holderURL, *keyFile, *keyType, *ownerPubFile, *delegateKeyFile, *delegateChainFile, *holderKeyFile)
 
 	ctx := context.Background()
 
@@ -54,7 +54,7 @@ func runPullCommand() {
 	slog.Info("pull: authenticating", "holder", *holderURL)
 	authResult, err := client.Authenticate()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "PullAuth failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "FDOKeyAuth failed: %v\n", err)
 		os.Exit(1)
 	}
 	slog.Info("pull: authenticated",
@@ -181,13 +181,13 @@ func runPullCommand() {
 	}
 }
 
-// buildPullAuthClient constructs a PullAuthClient with either standard owner-key
+// buildFDOKeyAuthClient constructs a FDOKeyAuthClient with either standard owner-key
 // authentication or delegate-based authentication.
 //
 //nolint:gocyclo // CLI helper with multiple validation paths
-func buildPullAuthClient(holderURL, keyFile, keyType, ownerPubFile, delegateKeyFile, delegateChainFile, holderKeyFile string) *transfer.PullAuthClient {
-	client := &transfer.PullAuthClient{
-		BaseURL: holderURL,
+func buildFDOKeyAuthClient(serverURL, keyFile, keyType, ownerPubFile, delegateKeyFile, delegateChainFile, serverKeyFile string) *transfer.FDOKeyAuthClient {
+	client := &transfer.FDOKeyAuthClient{
+		BaseURL: serverURL,
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -210,14 +210,14 @@ func buildPullAuthClient(holderURL, keyFile, keyType, ownerPubFile, delegateKeyF
 				fmt.Fprintf(os.Stderr, "error loading owner public key: %v\n", err)
 				os.Exit(1)
 			}
-			client.OwnerPublicKey = ownerPub
+			client.CallerPublicKey = ownerPub
 		} else {
 			ownerPriv, err := LoadPrivateKeyFromFile(keyFile)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error loading owner key: %v\n", err)
 				os.Exit(1)
 			}
-			client.OwnerKey = ownerPriv
+			client.CallerKey = ownerPriv
 		}
 
 		delegateKey, err := LoadPrivateKeyFromFile(delegateKeyFile)
@@ -240,18 +240,18 @@ func buildPullAuthClient(holderURL, keyFile, keyType, ownerPubFile, delegateKeyF
 		)
 	} else {
 		// Standard pull: owner private key
-		client.OwnerKey = loadOrGenerateKey(keyFile, keyType)
+		client.CallerKey = loadOrGenerateKey(keyFile, keyType)
 	}
 
 	// Load Holder public key for HolderSignature verification if provided
-	if holderKeyFile != "" {
-		holderPub, err := LoadPublicKeyFromFile(holderKeyFile)
+	if serverKeyFile != "" {
+		serverPub, err := LoadPublicKeyFromFile(serverKeyFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error loading holder public key: %v\n", err)
+			fmt.Fprintf(os.Stderr, "error loading server public key: %v\n", err)
 			os.Exit(1)
 		}
-		client.HolderPublicKey = holderPub
-		slog.Info("holder signature verification enabled", "key_file", holderKeyFile)
+		client.ServerPublicKey = serverPub
+		slog.Info("server signature verification enabled", "key_file", serverKeyFile)
 	}
 
 	return client

@@ -91,7 +91,7 @@ Simulates a two-hop supply chain: an upstream voucher service (Instance A) recei
 
 ### Category 6: Advanced DID-Based Supply Chain
 
-#### Test 6.1: End-to-End DID Push + PullAuth
+#### Test 6.1: End-to-End DID Push + FDOKeyAuth
 
 **⭐ Featured Test**: See [TUTORIAL-E2E-DID-PUSH-PULL.md](TUTORIAL-E2E-DID-PUSH-PULL.md) for a comprehensive tutorial.
 
@@ -100,7 +100,7 @@ This advanced test demonstrates modern FDO supply chain operations using DID-bas
 - **DID Document Discovery**: Both instances serve DID documents containing public keys and voucher endpoints
 - **Automatic DID Resolution**: Manufacturer automatically resolves customer's DID to discover keys and endpoints
 - **Cryptographic Sign-Over**: Vouchers are signed over to customer's public key automatically
-- **PushAuth Authentication**: Customer authenticates using PullAuth CBOR handshake for secure voucher retrieval
+- **PushAuth Authentication**: Customer authenticates using FDOKeyAuth CBOR handshake for secure voucher retrieval
 - **Real Supply Chain Model**: Simulates Manufacturer → Customer voucher flow with proper organizational boundaries
 
 **Key Features**:

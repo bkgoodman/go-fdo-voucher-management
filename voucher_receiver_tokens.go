@@ -5,9 +5,12 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/fido-device-onboard/go-fdo/protocol"
 )
 
 // VoucherReceiverTokenManager manages authentication tokens for the voucher receiver
@@ -43,6 +46,15 @@ func (m *VoucherReceiverTokenManager) Init(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_receiver_audit_guid ON voucher_receiver_audit(guid)`,
 		`CREATE INDEX IF NOT EXISTS idx_receiver_audit_received ON voucher_receiver_audit(received_at)`,
+	}
+
+	// Schema migration: add owner_key_fingerprint column if missing
+	migrations := []string{
+		`ALTER TABLE voucher_receiver_tokens ADD COLUMN owner_key_fingerprint TEXT`,
+	}
+	for _, stmt := range migrations {
+		// Ignore "duplicate column" errors — means migration already applied
+		_, _ = m.db.ExecContext(ctx, stmt)
 	}
 
 	for _, stmt := range stmts {
@@ -168,6 +180,49 @@ func (m *VoucherReceiverTokenManager) ListReceiverTokens(ctx context.Context) ([
 	}
 
 	return tokens, nil
+}
+
+// AddReceiverTokenWithFingerprint adds a token scoped to a specific owner key fingerprint.
+// This is used by FDOKeyAuth to issue tokens tied to the authenticated key.
+func (m *VoucherReceiverTokenManager) AddReceiverTokenWithFingerprint(ctx context.Context, token, description string, expiresAt time.Time, fingerprint string) error {
+	expiresAtMicro := expiresAt.UnixMicro()
+	now := time.Now().UnixMicro()
+
+	_, err := m.db.ExecContext(ctx, `
+		INSERT INTO voucher_receiver_tokens (token, description, expires_at, created_at, owner_key_fingerprint)
+		VALUES (?, ?, ?, ?, ?)
+	`, token, description, expiresAtMicro, now, fingerprint)
+
+	if err != nil {
+		return fmt.Errorf("failed to add receiver token with fingerprint: %w", err)
+	}
+
+	return nil
+}
+
+// IssueTokenForKey generates a random token for the given caller key and stores it.
+// This implements the transfer.TokenIssuer interface for FDOKeyAuth integration.
+func (m *VoucherReceiverTokenManager) IssueTokenForKey(callerKey protocol.PublicKey, ttl time.Duration) (string, time.Time, error) {
+	fingerprint := FingerprintProtocolKey(callerKey)
+	if fingerprint == nil {
+		return "", time.Time{}, fmt.Errorf("failed to compute key fingerprint")
+	}
+	fpHex := fmt.Sprintf("%x", fingerprint)
+
+	// Generate random token
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to generate token: %w", err)
+	}
+	token := fmt.Sprintf("%x", tokenBytes)
+	expiresAt := time.Now().Add(ttl)
+
+	ctx := context.Background()
+	if err := m.AddReceiverTokenWithFingerprint(ctx, token, "FDOKeyAuth-issued", expiresAt, fpHex); err != nil {
+		return "", time.Time{}, err
+	}
+
+	return token, expiresAt, nil
 }
 
 // LogReceivedVoucher logs a received voucher to the audit table

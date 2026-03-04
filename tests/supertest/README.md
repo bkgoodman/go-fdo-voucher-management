@@ -55,9 +55,9 @@ Full supply chain via PUSH. Manufacturer pushes voucher to reseller (VM), which 
 
 ### Scenario 4: Reseller Pull
 
-**Services:** All five | **Transfer:** Push + Pull | **Protocols:** DI, PullAuth, TO0, TO1, TO2
+**Services:** All five | **Transfer:** Push + Pull | **Protocols:** DI, FDOKeyAuth, TO0, TO1, TO2
 
-Same supply chain but OBS PULLS vouchers from VM using PullAuth (Type-5 owner-key authentication). Demonstrates environments where the downstream service initiates transfer. Includes negative test for owner-scoped isolation.
+Same supply chain but OBS PULLS vouchers from VM using FDOKeyAuth (Type-5 owner-key authentication). Demonstrates environments where the downstream service initiates transfer. Includes negative test for owner-scoped isolation.
 
 ### Scenario 5: Delegate Certificates
 
@@ -65,11 +65,11 @@ Same supply chain but OBS PULLS vouchers from VM using PullAuth (Type-5 owner-ke
 
 OBS creates a delegate certificate with `voucher-claim` permission and uses it for both TO0 (RV registration) and TO2 (device onboarding). The owner's private key is never used directly.
 
-### Scenario 6: DID + PullAuth (Owner-Key + Delegate)
+### Scenario 6: DID + FDOKeyAuth (Owner-Key + Delegate)
 
-**Services:** All five | **Transfer:** Push + Pull (two modes) | **Protocols:** DI, PullAuth (owner-key + delegate), TO0, TO1, TO2
+**Services:** All five | **Transfer:** Push + Pull (two modes) | **Protocols:** DI, FDOKeyAuth (owner-key + delegate), TO0, TO1, TO2
 
-The most comprehensive scenario. Tests three PullAuth modes against the same Holder:
+The most comprehensive scenario. Tests three FDOKeyAuth modes against the same Holder:
 - **A:** Owner-key pull (standard)
 - **B:** Delegate-based pull (delegate cert + owner public key only)
 - **C:** Negative isolation (unrelated key → 0 vouchers)
@@ -92,7 +92,7 @@ Uses ports 9801 (FDO) and 18082 (HTTP file server).
 
 ## Test Matrix
 
-| Scenario | DI | Push | Pull | TO0 | TO1 | TO2 | Delegate | DID | PullAuth |
+| Scenario | DI | Push | Pull | TO0 | TO1 | TO2 | Delegate | DID | FDOKeyAuth |
 |----------|:--:|:----:|:----:|:---:|:---:|:---:|:--------:|:---:|----------|
 | 1 Direct | ✓ | ✓ | | | | ✓ | | | — |
 | 2 Full RV | ✓ | ✓ | | ✓ | ✓ | ✓ | | | — |
@@ -157,7 +157,7 @@ Check the OBS log for `TO0 dispatcher` messages.
 
 ### Pull returns 0 vouchers
 
-PullAuth is owner-key-scoped. The pulling key's fingerprint must match the `owner_key_fingerprint` stored with the voucher. Verify:
+FDOKeyAuth is owner-key-scoped. The pulling key's fingerprint must match the `owner_key_fingerprint` stored with the voucher. Verify:
 1. The Mfg station signed over to the correct key
 2. The VM's signover pipeline ran (check VM log for "sign-over" or "pipeline")
 3. The pull key matches what the voucher was signed over to
@@ -182,5 +182,5 @@ MANUFACTURING (DI)           TRANSFER              ONBOARDING
 - **TO1 (Transfer Ownership 1):** Device asks RV "where should I go?" Gets owner's address.
 - **TO2 (Transfer Ownership 2):** Device connects to owner. Owner proves identity. FSIM payloads delivered. Ownership transferred.
 - **Push:** Upstream entity sends voucher to downstream via HTTP POST.
-- **Pull (PullAuth):** Downstream entity authenticates to upstream and downloads vouchers.
+- **Pull (FDOKeyAuth):** Downstream entity authenticates to upstream and downloads vouchers.
 - **Delegate:** Certificate signed by owner key, used in place of owner key for specific operations.

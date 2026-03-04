@@ -56,7 +56,7 @@ Key configuration sections:
 - **voucher_signing**: Signing mode (internal/external/hsm)
 - **owner_signover**: Next owner key resolution (static/dynamic)
 - **push_service**: Outbound transmission endpoint and retry settings
-- **pull_service**: PullAuth protocol and pull API settings
+- **pull_service**: FDOKeyAuth protocol and pull API settings
 - **did_minting**: DID document generation and serving
 - **partners**: Trusted partner bootstrap entries
 - **retry_worker**: Background retry loop configuration
@@ -94,7 +94,7 @@ fdo-voucher-manager <subcommand> [options]
 | `tokens` | Manage receiver authentication tokens (add, list, delete) |
 | `partners` | Manage trusted partner identities (add, list, show, remove, export) |
 | `pull` | Authenticate and download vouchers from a Holder |
-| `pullauth` | PullAuth handshake only (authentication test) |
+| `fdokeyauth` | FDOKeyAuth handshake only (authentication test) |
 | `generate` | Generate test vouchers |
 | `keys` | Inspect and export cryptographic keys |
 | `help` | Show usage summary |

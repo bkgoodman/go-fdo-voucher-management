@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test: End-to-End DID Push + PullAuth Pull
+# Test: End-to-End DID Push + FDOKeyAuth Pull
 #
 # Two instances ("First" on :8083, "Second" on :8084) with different owner keys.
 #
@@ -12,9 +12,9 @@
 #   6. First signs voucher over to Second's key and pushes to Second's endpoint
 #   7. Verify Second received the voucher
 #
-# Scenario B — PullAuth (Type-5) Pull:
-#   8. Second authenticates to First using PullAuth (CBOR handshake)
-#   9. Verify PullAuth endpoints respond correctly
+# Scenario B — FDOKeyAuth (Type-5) Pull:
+#   8. Second authenticates to First using FDOKeyAuth (CBOR handshake)
+#   9. Verify FDOKeyAuth endpoints respond correctly
 
 set -u
 
@@ -42,7 +42,7 @@ cleanup() {
 trap cleanup EXIT
 
 # ============================================================
-log_info "=== End-to-End DID Push + PullAuth Pull Test ==="
+log_info "=== End-to-End DID Push + FDOKeyAuth Pull Test ==="
 # ============================================================
 
 # Kill any stale fdo-voucher-manager processes from previous runs
@@ -236,49 +236,49 @@ step_verify_did_push() {
 }
 
 # ============================================================
-# Step 7: PullAuth — Real CBOR handshake (Type-5 authentication)
-# Second uses its owner key to authenticate to First via PullAuth
+# Step 7: FDOKeyAuth — Real CBOR handshake (Type-5 authentication)
+# Second uses its owner key to authenticate to First via FDOKeyAuth
 # ============================================================
-step_pullauth_handshake() {
-    log_info "Step 7: PullAuth handshake — Second authenticates to First..."
+step_fdokeyauth_handshake() {
+    log_info "Step 7: FDOKeyAuth handshake — Second authenticates to First..."
 
-    # Perform a real PullAuth CBOR handshake against First using an ephemeral key.
+    # Perform a real FDOKeyAuth CBOR handshake against First using an ephemeral key.
     # This exercises the full 3-message protocol:
     #   Hello (owner key + nonce) → Challenge (holder sig) → Prove (recipient sig) → Result (token)
-    local pullauth_output
-    pullauth_output=$("$PROJECT_ROOT/fdo-voucher-manager" pullauth \
+    local fdokeyauth_output
+    fdokeyauth_output=$("$PROJECT_ROOT/fdo-voucher-manager" fdokeyauth \
         -url "http://localhost:$PORT_FIRST" \
         -key-type ec384 \
         -json 2>/dev/null)
-    local pullauth_exit=$?
+    local fdokeyauth_exit=$?
 
-    if [ $pullauth_exit -eq 0 ]; then
-        log_success "PullAuth handshake succeeded (exit 0)"
+    if [ $fdokeyauth_exit -eq 0 ]; then
+        log_success "FDOKeyAuth handshake succeeded (exit 0)"
         ((TESTS_PASSED++))
     else
-        log_error "PullAuth handshake failed (exit $pullauth_exit)"
+        log_error "FDOKeyAuth handshake failed (exit $fdokeyauth_exit)"
         ((TESTS_FAILED++))
-        log_info "PullAuth output: $pullauth_output"
+        log_info "FDOKeyAuth output: $fdokeyauth_output"
         return
     fi
 
     # Verify we got a session token
     local session_token
-    session_token=$(echo "$pullauth_output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('session_token',''))" 2>/dev/null || echo "")
-    assert_not_empty "$session_token" "PullAuth returned a session token"
+    session_token=$(echo "$fdokeyauth_output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('session_token',''))" 2>/dev/null || echo "")
+    assert_not_empty "$session_token" "FDOKeyAuth returned a session token"
 
     # Verify status is authenticated
     local status
-    status=$(echo "$pullauth_output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null || echo "")
-    assert_equals "authenticated" "$status" "PullAuth status should be 'authenticated'"
+    status=$(echo "$fdokeyauth_output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null || echo "")
+    assert_equals "authenticated" "$status" "FDOKeyAuth status should be 'authenticated'"
 
     # Verify we got an owner key fingerprint
     local fingerprint
-    fingerprint=$(echo "$pullauth_output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('owner_key_fingerprint',''))" 2>/dev/null || echo "")
-    assert_not_empty "$fingerprint" "PullAuth returned an owner key fingerprint"
+    fingerprint=$(echo "$fdokeyauth_output" | python3 -c "import sys,json; print(json.load(sys.stdin).get('owner_key_fingerprint',''))" 2>/dev/null || echo "")
+    assert_not_empty "$fingerprint" "FDOKeyAuth returned an owner key fingerprint"
 
-    log_info "PullAuth result:"
-    echo "$pullauth_output" | python3 -m json.tool 2>/dev/null || echo "$pullauth_output"
+    log_info "FDOKeyAuth result:"
+    echo "$fdokeyauth_output" | python3 -m json.tool 2>/dev/null || echo "$fdokeyauth_output"
 }
 
 # ============================================================
@@ -288,7 +288,7 @@ step_pullauth_handshake() {
 step_pull_vouchers() {
     log_info "Step 8: Pull vouchers — Second authenticates to First using its DID-minted owner key..."
     log_info "  Config: tests/config-e2e-second.yaml (key_export_path → tests/data/e2e-second-owner-key.pem)"
-    log_info "  The pull uses Type-5 (PullAuth) challenge-response authentication."
+    log_info "  The pull uses Type-5 (FDOKeyAuth) challenge-response authentication."
     log_info "  Second proves possession of its owner key — the same key vouchers were signed over TO."
     log_info "  First only returns vouchers whose owner_key_fingerprint matches Second's key."
 
@@ -410,7 +410,7 @@ print(d['verificationMethod'][0]['publicKeyJwk']['x'])
 
 # ============================================================
 # Step 10: Owner-scoped pull isolation — different owners see only their vouchers
-# Demonstrates that PullAuth + Pull API enforces owner key scoping:
+# Demonstrates that FDOKeyAuth + Pull API enforces owner key scoping:
 # Second's key sees vouchers signed over to it; an unrelated key sees none.
 # ============================================================
 step_owner_scoped_pull_isolation() {
@@ -482,7 +482,7 @@ run_test "Create First Config with Second's DID" step_create_first_config
 step_start_first || exit 1
 run_test "Push Voucher to First" step_push_voucher_to_first
 run_test "Verify DID-based Push to Second" step_verify_did_push
-run_test "PullAuth Handshake (Type-5 Auth)" step_pullauth_handshake
+run_test "FDOKeyAuth Handshake (Type-5 Auth)" step_fdokeyauth_handshake
 run_test "Pull Vouchers (Auth + List + Download)" step_pull_vouchers
 run_test "Verify Both DID Documents" step_verify_both_dids
 run_test "Owner-Scoped Pull Isolation" step_owner_scoped_pull_isolation

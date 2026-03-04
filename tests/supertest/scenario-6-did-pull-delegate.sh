@@ -2,12 +2,12 @@
 # SPDX-FileCopyrightText: (C) 2026 Dell Technologies
 # SPDX-License-Identifier: Apache 2.0
 #
-# Scenario 6: DID + PullAuth — Owner-Key AND Delegate Pull
+# Scenario 6: DID + FDOKeyAuth — Owner-Key AND Delegate Pull
 #
-# All 5 services. Tests both PullAuth authentication modes against
+# All 5 services. Tests both FDOKeyAuth authentication modes against
 # the same Holder (Voucher Manager):
 #
-#   Sub-test A: Owner-key pull (standard Type-5 PullAuth)
+#   Sub-test A: Owner-key pull (standard Type-5 FDOKeyAuth)
 #   Sub-test B: Delegate-based pull (delegate cert + owner public key)
 #   Sub-test C: Negative — unrelated key sees 0 vouchers (isolation)
 #
@@ -47,10 +47,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-banner "Scenario 6: DID + PullAuth — Owner-Key AND Delegate Pull"
+banner "Scenario 6: DID + FDOKeyAuth — Owner-Key AND Delegate Pull"
 narrate "This is the most comprehensive scenario. It tests:"
-narrate "  A) PullAuth with the owner's private key (standard)"
-narrate "  B) PullAuth with a delegate certificate (cross-org)"
+narrate "  A) FDOKeyAuth with the owner's private key (standard)"
+narrate "  B) FDOKeyAuth with a delegate certificate (cross-org)"
 narrate "  C) Negative: unrelated key gets 0 vouchers (isolation)"
 narrate "Then completes full onboarding via RV."
 
@@ -111,7 +111,7 @@ phase "Initialize & Start Voucher Manager (Holder)"
 # ============================================================
 narrate "VM starts first so it can export its DID-minted owner key."
 narrate "Mfg will sign vouchers to VM's key. Pullers will use VM's"
-narrate "exported private key for PullAuth."
+narrate "exported private key for FDOKeyAuth."
 narrate "Push to OBS is DISABLED — OBS will pull."
 
 gen_vm_config "$PORT_VM" "$VM_DB" "$VM_VOUCHERS" \
@@ -197,10 +197,10 @@ show_file_listing "$VM_VOUCHERS" "VM Vouchers (Holder)"
 show_key_fingerprint "$OBS_OWNER_KEY" "OBS Owner (expected pull identity)"
 
 # ============================================================
-phase "Sub-test A: Owner-Key Pull (Standard PullAuth Type-5)"
+phase "Sub-test A: Owner-Key Pull (Standard FDOKeyAuth Type-5)"
 # ============================================================
 narrate "OBS authenticates to VM's Pull API using its owner private key."
-narrate "This is the standard PullAuth flow: the puller proves it holds"
+narrate "This is the standard FDOKeyAuth flow: the puller proves it holds"
 narrate "the key that vouchers were signed over to."
 
 mkdir -p "$PULL_A_DIR"
@@ -233,7 +233,7 @@ show_file_listing "$PULL_A_DIR" "Pull A Output (owner-key)"
 # ============================================================
 phase "Sub-test B: Delegate-Based Pull"
 # ============================================================
-narrate "Now we test delegate-based PullAuth. A delegate cert is"
+narrate "Now we test delegate-based FDOKeyAuth. A delegate cert is"
 narrate "created at the OBS (signed by the owner key), and then used"
 narrate "to pull vouchers. The puller only needs the owner PUBLIC key"
 narrate "plus the delegate's private key and certificate chain."
@@ -328,7 +328,7 @@ phase "Sub-test C: Negative — Owner-Scoped Isolation"
 narrate "An ephemeral (unrelated) key should see ZERO vouchers"
 narrate "when pulling from VM. This proves owner-key scoping."
 
-PULL_C_OUTPUT=$("$BIN_VM" pullauth \
+PULL_C_OUTPUT=$("$BIN_VM" fdokeyauth \
     -url "http://127.0.0.1:${PORT_VM}" \
     -key-type ec384 \
     -json 2>&1 || echo '{"voucher_count":-1}')
@@ -349,7 +349,7 @@ if [ "$PULL_C_COUNT" = "0" ]; then
     log_success "Sub-test C: Unrelated key sees 0 vouchers (isolation works)"
     ((TESTS_RUN++)); ((TESTS_PASSED++))
 elif [ "$PULL_C_COUNT" = "-1" ]; then
-    log_warn "Sub-test C: Could not parse pullauth response (non-critical)"
+    log_warn "Sub-test C: Could not parse fdokeyauth response (non-critical)"
 else
     log_error "Sub-test C: Unrelated key saw $PULL_C_COUNT vouchers (expected 0)"
     ((TESTS_RUN++)); ((TESTS_FAILED++))
@@ -394,8 +394,8 @@ fi
 # ============================================================
 phase "Verification Summary"
 # ============================================================
-narrate "Scenario 6 complete! Three PullAuth modes tested:"
-narrate "  A) Owner-key pull: standard Type-5 PullAuth ✓"
+narrate "Scenario 6 complete! Three FDOKeyAuth modes tested:"
+narrate "  A) Owner-key pull: standard Type-5 FDOKeyAuth ✓"
 if [ "$DELEGATE_PULL_OK" = true ]; then
     narrate "  B) Delegate pull: delegate cert + owner public key ✓"
 else

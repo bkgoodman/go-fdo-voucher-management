@@ -19,7 +19,7 @@ All subcommands that interact with the database accept `-config <path>` (default
 | [`tokens`](#tokens) | Manage receiver authentication tokens |
 | [`partners`](#partners) | Manage trusted partner identities |
 | [`pull`](#pull) | Authenticate and download vouchers from a Holder |
-| [`pullauth`](#pullauth) | PullAuth handshake only (authentication test) |
+| [`fdokeyauth`](#fdokeyauth) | FDOKeyAuth handshake only (authentication test) |
 | [`generate`](#generate) | Generate test vouchers |
 | [`keys`](#keys) | Inspect and export cryptographic keys |
 | [`help`](#help) | Show usage summary |
@@ -41,7 +41,7 @@ fdo-voucher-manager server [options]
 
 The server starts all enabled subsystems based on the config file:
 - **Voucher receiver** — HTTP endpoint accepting pushed vouchers
-- **Pull service** — PullAuth + Pull API for authenticated voucher retrieval
+- **Pull service** — FDOKeyAuth + Pull API for authenticated voucher retrieval
 - **DID minting** — Generates and serves a DID document at `.well-known/did.json`
 - **Retry worker** — Background loop retrying failed transmissions
 - **Partner DID refresh** — Background worker refreshing cached DID documents
@@ -321,7 +321,7 @@ fdo-voucher-manager partners export [options]
 
 ## pull
 
-Authenticate with a Holder via the PullAuth protocol, then list and optionally download vouchers. This is the client-side command for the Pull transfer model.
+Authenticate with a Holder via the FDOKeyAuth protocol, then list and optionally download vouchers. This is the client-side command for the Pull transfer model.
 
 ```
 fdo-voucher-manager pull [options]
@@ -367,7 +367,7 @@ When using delegate mode, either `-owner-pub` or `-key` must identify the owner.
 | `-output` | string | `""` | Directory to save downloaded `.fdoov` files. If omitted, lists metadata only. |
 | `-list` | bool | `false` | List vouchers only, do not download (even if `-output` is set) |
 | `-json` | bool | `false` | Output as JSON |
-| `-holder-key` | string | `""` | PEM-encoded Holder public key file for verifying the Holder's signature during PullAuth |
+| `-holder-key` | string | `""` | PEM-encoded Holder public key file for verifying the Holder's signature during FDOKeyAuth |
 
 ### Examples
 
@@ -410,12 +410,12 @@ When using delegate mode, either `-owner-pub` or `-key` must identify the owner.
 
 ---
 
-## pullauth
+## fdokeyauth
 
-Perform a PullAuth handshake only, without listing or downloading vouchers. Useful for testing authentication or obtaining a session token for use with other tools.
+Perform a FDOKeyAuth handshake only, without listing or downloading vouchers. Useful for testing authentication or obtaining a session token for use with other tools.
 
 ```
-fdo-voucher-manager pullauth [options]
+fdo-voucher-manager fdokeyauth [options]
 ```
 
 Accepts the same authentication flags as [`pull`](#pull):
@@ -437,10 +437,10 @@ Output includes: Session Token, Expiration, Owner Key Fingerprint, Voucher Count
 
 ```bash
 # Test authentication with owner key
-./fdo-voucher-manager pullauth -url http://holder:8083 -key owner.pem
+./fdo-voucher-manager fdokeyauth -url http://holder:8083 -key owner.pem
 
 # Test delegate authentication, JSON output
-./fdo-voucher-manager pullauth -url http://holder:8083 \
+./fdo-voucher-manager fdokeyauth -url http://holder:8083 \
     -owner-pub owner-pub.pem \
     -delegate-key delegate.pem \
     -delegate-chain chain.pem \

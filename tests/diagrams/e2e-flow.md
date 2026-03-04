@@ -147,8 +147,8 @@ Step 6: Manufacturer → Customer Push
 │ Second receives and stores voucher                           │
 └─────────────────────────────────────────────────────────────┘
 
-Step 7: PullAuth Authentication (Alternative)
-┌─────────────┐    PullAuth handshake     ┌─────────────┐
+Step 7: FDOKeyAuth Authentication (Alternative)
+┌─────────────┐    FDOKeyAuth handshake     ┌─────────────┐
 │   Second    │─────────────────────────▶│   First     │
 │  (Client)   │   authenticate           │  :8083      │
 └─────────────┘                         └─────────────┘
@@ -162,11 +162,11 @@ Step 7: PullAuth Authentication (Alternative)
 └─────────────────────────────────────────────────────────────┘
 ```text
 
-## PullAuth Cryptographic Handshake
+## FDOKeyAuth Cryptographic Handshake
 
 ```
 
-PullAuth Protocol Flow (Type-5 Authentication)
+FDOKeyAuth Protocol Flow (Type-5 Authentication)
 
 ┌─────────────┐      1. Hello      ┌─────────────┐
 │   Second    │───────────────────▶│   First     │
@@ -290,7 +290,7 @@ Common Failure Points and Recovery
 │ - Check network connectivity                                │
 └─────────────────────────────────────────────────────────────┘
 
-┌─────────────────┐    PullAuth           ┌─────────────────┐
+┌─────────────────┐    FDOKeyAuth           ┌─────────────────┐
 │   Second        │    Authentication    │   First         │
 │   (Client)      │◀─────────────────────│   :8083         │
 └─────────────────┘    Failure           └─────────────────┘
@@ -322,7 +322,7 @@ DID Document             Partner Information System      Exchange contact info
 DID Resolution           Business Partner Discovery     Find partner endpoints
 Voucher Sign-over        Ownership Transfer Process      Transfer device rights
 Push Transmission        Automated Delivery             Proactive voucher send
-PullAuth Authentication  Secure Customer Portal         Authenticated access
+FDOKeyAuth Authentication  Secure Customer Portal         Authenticated access
 
 ```
 
@@ -351,7 +351,7 @@ Execution Timeline (seconds)
 │     │
 │     ├─ Verify Delivery
 │     │
-│     ├─ PullAuth Handshake
+│     ├─ FDOKeyAuth Handshake
 │     │
 │     └─ Verify Independent Identities
 

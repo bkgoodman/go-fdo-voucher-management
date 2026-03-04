@@ -97,12 +97,12 @@ Within a single organization, different teams or services may need access to vou
 
 In this model, **no sign-over occurs** — vouchers remain signed to the central owner key. Instead, each regional service authenticates using a **delegate certificate** issued by the central service, with `voucher-claim` permission. The delegate certificate proves they are authorized to pull vouchers on behalf of the organization.
 
-This is implemented via the PullAuth protocol with delegate support:
+This is implemented via the FDOKeyAuth protocol with delegate support:
 
 1. Regional service generates a keypair and CSR
 2. Central service signs the CSR with `voucher-claim` permission using the owner key
-3. Regional service uses the delegate cert + key for PullAuth authentication
-4. PullAuth server validates the delegate chain is rooted at the owner key and has `voucher-claim`
+3. Regional service uses the delegate cert + key for FDOKeyAuth authentication
+4. FDOKeyAuth server validates the delegate chain is rooted at the owner key and has `voucher-claim`
 
 For CLI commands to issue delegate certificates, see `go-fdo/delegate.md` (CSR Workflow section).
 
@@ -149,7 +149,7 @@ The **FDO Voucher Manager** implements the "Voucher Service" box in the diagrams
 The project supports two complementary transfer models:
 
 - **Push**: The sender initiates transmission. Used when the sender knows the recipient's endpoint (e.g., a factory pushing to a known OEM service).
-- **Pull (with PullAuth)**: The recipient initiates retrieval, authenticating with cryptographic proof of ownership. Used when the recipient wants to fetch vouchers on their own schedule (e.g., a customer pulling from a supplier's service).
+- **Pull (with FDOKeyAuth)**: The recipient initiates retrieval, authenticating with cryptographic proof of ownership. Used when the recipient wants to fetch vouchers on their own schedule (e.g., a customer pulling from a supplier's service).
 
 ### Discovery via DID
 
@@ -168,6 +168,6 @@ This project depends on the [go-fdo](go-fdo/) library, which implements the core
 | **Voucher Service** | An intermediary that receives, stores, signs over, and transmits vouchers |
 | **Onboarding Service** | The final destination that uses vouchers to onboard devices via FDO TO1/TO2 |
 | **Push** | Sender-initiated voucher transmission |
-| **Pull** | Recipient-initiated voucher retrieval (with PullAuth cryptographic authentication) |
+| **Pull** | Recipient-initiated voucher retrieval (with FDOKeyAuth cryptographic authentication) |
 | **Sign-over** | Extending the voucher's ownership chain to a new owner's key |
 | **DID** | Decentralized Identifier used to discover a partner's key and voucher endpoint |

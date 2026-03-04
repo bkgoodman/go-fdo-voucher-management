@@ -18,7 +18,7 @@ narrate "  Manufacturing Station · Device Client · Voucher Manager"
 narrate "  Rendezvous Server · Onboarding Service"
 narrate ""
 narrate "Scenarios cover: DI, Push, Pull, TO0, TO1, TO2,"
-narrate "  DID discovery, PullAuth (owner-key + delegate), and delegation."
+narrate "  DID discovery, FDOKeyAuth (owner-key + delegate), and delegation."
 echo ""
 
 # ============================================================
@@ -78,11 +78,11 @@ run_scenario "scenario-2-full-rv.sh"           "2: Full Rendezvous (Mfg → OBS 
 run_scenario "scenario-3-reseller-push.sh"     "3: Reseller Push (Mfg → VM → OBS → RV → Device)"
 run_scenario "scenario-4-reseller-pull.sh"     "4: Reseller Pull (Mfg → VM ← OBS → RV → Device)"
 run_scenario "scenario-5-delegation.sh"        "5: Delegate Certs (TO0 + TO2 via delegate)"
-run_scenario "scenario-6-did-pull-delegate.sh" "6: DID + PullAuth (owner-key + delegate + isolation)"
+run_scenario "scenario-6-did-pull-delegate.sh" "6: DID + FDOKeyAuth (owner-key + delegate + isolation)"
 
-# Scenario 7 is an expected-failure canary test (Mfg has no PullAuth support yet).
-# Uncomment once go-fdo-di adds PullAuth holder endpoints.
-# run_scenario "scenario-7-mfg-pull.sh"        "7: Mfg Pull (Mfg ← VM via PullAuth)"
+# Scenario 7 is an expected-failure canary test (Mfg has no FDOKeyAuth support yet).
+# Uncomment once go-fdo-di adds FDOKeyAuth holder endpoints.
+# run_scenario "scenario-7-mfg-pull.sh"        "7: Mfg Pull (Mfg ← VM via FDOKeyAuth)"
 
 run_scenario "scenario-8-bmo-meta-url.sh"   "8: BMO Meta-URL (inline + unsigned + signed + negative)"
 run_scenario "scenario-8-enhanced-bmo-meta-url.sh" "8E: BMO Meta-URL Enhanced (go-fdo-meta-tool integration)"

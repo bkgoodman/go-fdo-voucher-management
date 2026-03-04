@@ -182,7 +182,7 @@ This document outlines the test strategy for the FDO Voucher Manager, focusing o
 
 ### Category 6: Advanced DID-Based Supply Chain
 
-#### Test 6.1: End-to-End DID Push + PullAuth
+#### Test 6.1: End-to-End DID Push + FDOKeyAuth
 
 - Start Instance A (Manufacturer, port 8083) with DID document serving
 - Start Instance B (Customer, port 8084) with DID document serving
@@ -194,7 +194,7 @@ This document outlines the test strategy for the FDO Voucher Manager, focusing o
 - Verify A signs voucher over to B's public key
 - Verify A pushes signed voucher to B's endpoint
 - Verify B receives and stores voucher
-- Perform PullAuth handshake (B authenticates to A)
+- Perform FDOKeyAuth handshake (B authenticates to A)
 - Verify both instances serve distinct DID documents
 - Verify cryptographic independence (different keys, different DIDs)
 
@@ -204,7 +204,7 @@ This document outlines the test strategy for the FDO Voucher Manager, focusing o
 - Automatic endpoint discovery via DID
 - Cryptographic sign-over using DID-resolved keys
 - Push transmission with DID-based targeting
-- PullAuth authentication for secure voucher retrieval
+- FDOKeyAuth authentication for secure voucher retrieval
 - Independent organizational identities
 - Complete supply chain simulation
 

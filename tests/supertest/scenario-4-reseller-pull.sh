@@ -6,9 +6,9 @@
 #
 # All 5 services. Same supply chain as Scenario 3 but the OBS PULLS
 # vouchers from the VM instead of the VM pushing them:
-#   Mfg →(push)→ VM ←(pull/PullAuth)← OBS →(TO0)→ RV ←(TO1)← Device →(TO2)→ OBS
+#   Mfg →(push)→ VM ←(pull/FDOKeyAuth)← OBS →(TO0)→ RV ←(TO1)← Device →(TO2)→ OBS
 #
-# This demonstrates PullAuth owner-key authentication (Type-5):
+# This demonstrates FDOKeyAuth owner-key authentication (Type-5):
 # OBS proves it holds the owner key that vouchers were signed over to,
 # then lists and downloads them from the VM's Pull API.
 #
@@ -43,7 +43,7 @@ trap cleanup EXIT
 banner "Scenario 4: Reseller Supply Chain — PULL Path"
 narrate "Same supply chain as Scenario 3, but instead of VM pushing"
 narrate "vouchers to OBS, the OBS actively PULLS them from the VM"
-narrate "using PullAuth (Type-5 owner-key authentication)."
+narrate "using FDOKeyAuth (Type-5 owner-key authentication)."
 narrate ""
 narrate "This simulates environments where the downstream service"
 narrate "cannot receive inbound connections (e.g., behind NAT/firewall)"
@@ -98,7 +98,7 @@ phase "Initialize & Start Voucher Manager (Holder)"
 # ============================================================
 narrate "VM starts first so it can export its DID-minted owner key."
 narrate "Mfg will sign vouchers to VM's key. The puller (OBS) will"
-narrate "then use VM's exported private key for PullAuth."
+narrate "then use VM's exported private key for FDOKeyAuth."
 narrate "Push to OBS is DISABLED — OBS will pull instead."
 
 # VM signover target is not needed here — VM is the terminal holder.
@@ -190,9 +190,9 @@ narrate "OBS voucher count before pull: $OBS_PRE_COUNT"
 show_item "OBS has $OBS_PRE_COUNT voucher(s) — pull has not happened yet"
 
 # ============================================================
-phase "OBS Pulls Vouchers from VM (PullAuth Owner-Key)"
+phase "OBS Pulls Vouchers from VM (FDOKeyAuth Owner-Key)"
 # ============================================================
-narrate "Now OBS authenticates to VM using PullAuth (Type-5)."
+narrate "Now OBS authenticates to VM using FDOKeyAuth (Type-5)."
 narrate "OBS proves it holds the owner key that the vouchers were"
 narrate "signed over to. VM verifies this and returns only vouchers"
 narrate "whose owner_key_fingerprint matches OBS's key."
@@ -217,7 +217,7 @@ echo "$PULL_OUTPUT" | python3 -m json.tool 2>/dev/null | sed 's/^/    /' || echo
 
 # Check pull result
 PULL_DOWNLOADED=$(echo "$PULL_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('downloaded',0))" 2>/dev/null || echo "0")
-assert_count_gt "$PULL_DOWNLOADED" 0 "OBS downloaded voucher(s) via PullAuth pull"
+assert_count_gt "$PULL_DOWNLOADED" 0 "OBS downloaded voucher(s) via FDOKeyAuth pull"
 
 show_file_listing "$OBS_PULLED" "OBS Pulled Vouchers"
 
@@ -227,7 +227,7 @@ phase "Negative Test: Owner-Scoped Isolation"
 narrate "An unrelated key should see ZERO vouchers when pulling"
 narrate "from the same VM — this proves owner-key scoping works."
 
-UNRELATED_OUTPUT=$("$BIN_VM" pullauth \
+UNRELATED_OUTPUT=$("$BIN_VM" fdokeyauth \
     -url "http://127.0.0.1:${PORT_VM}" \
     -key-type ec384 \
     -json 2>/dev/null || echo '{"error":"failed"}')
@@ -297,7 +297,7 @@ narrate "Scenario 4 complete! The PULL supply chain worked:"
 narrate "  Mfg →push→ VM ←pull← OBS →TO0→ RV ←TO1← Device →TO2→ OBS"
 narrate ""
 narrate "Key difference from Scenario 3: OBS initiated the voucher"
-narrate "transfer using PullAuth, proving ownership of the target key."
+narrate "transfer using FDOKeyAuth, proving ownership of the target key."
 narrate "This is essential for environments where the downstream"
 narrate "service cannot receive inbound connections."
 

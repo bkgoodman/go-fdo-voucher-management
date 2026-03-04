@@ -40,8 +40,8 @@ func main() {
 		runKeysCommand()
 	case "generate":
 		runGenerateCommand()
-	case "pullauth":
-		runPullAuthCommand()
+	case "fdokeyauth", "pullauth":
+		runFDOKeyAuthCommand()
 	case "pull":
 		runPullCommand()
 	case "partners":
@@ -62,7 +62,7 @@ Usage:
   fdo-voucher-manager server [options]
   fdo-voucher-manager vouchers [command] [options]
   fdo-voucher-manager tokens [command] [options]
-  fdo-voucher-manager pullauth [options]
+  fdo-voucher-manager fdokeyauth [options]
   fdo-voucher-manager pull [options]
   fdo-voucher-manager partners [command] [options]
   fdo-voucher-manager help
@@ -72,8 +72,8 @@ Subcommands:
   vouchers            Manage vouchers (list, show, retry)
   tokens              Manage receiver authentication tokens
   partners            Manage trusted partner identities (add, list, show, remove, export)
-  pullauth            Perform PullAuth handshake only (authentication test)
-  pull                Authenticate, list, and download vouchers from a Holder
+  fdokeyauth          Perform FDOKeyAuth handshake only (authentication test)
+  pull                Authenticate, list, and download vouchers from a Server
   help                Show this help message
 
 Options for 'server':
@@ -102,8 +102,8 @@ Options for 'tokens list':
 Options for 'tokens delete':
   -token string      Token to delete (required)
 
-Options for 'pullauth':
-  -url string        Holder base URL (required)
+Options for 'fdokeyauth':
+  -url string        Server base URL (required)
   -key string        Owner private key PEM file (for non-delegate pull)
   -key-type string   Key type if generating ephemeral key (ec256, ec384, rsa2048)
   -owner-pub string  Owner public key PEM file (for delegate-based pull)
@@ -250,13 +250,19 @@ func runServer() {
 		ownerKey = setupDIDMinting(config, mux, signingService)
 	}
 
-	// Setup pull service (PullAuth + Pull API) — uses the same owner key as DID identity
+	// Setup pull service (FDOKeyAuth + Pull API) — uses the same owner key as DID identity
 	if config.PullService.Enabled {
 		if ownerKey == nil {
-			slog.Error("pull service requires DID minting to be enabled (owner key needed for PullAuth)")
+			slog.Error("pull service requires DID minting to be enabled (owner key needed for FDOKeyAuth)")
 		} else {
 			setupPullService(config, mux, ownerKey, fileStore, transmitStore)
 		}
+	}
+
+	// Setup FDOKeyAuth on the push receiver endpoint so suppliers can authenticate
+	// before pushing vouchers. Uses the same owner key as the pull service.
+	if config.VoucherReceiver.Enabled && ownerKey != nil {
+		setupPushReceiverAuth(config, mux, ownerKey, tokenManager, partnerStore)
 	}
 
 	server := &http.Server{
