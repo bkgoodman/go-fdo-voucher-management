@@ -4,27 +4,31 @@ Gap analysis comparing `fdo-appnote-voucher-transfer.bs` specification against t
 
 **Spec section numbering:**
 
-| § | Section |
-|---|---|
-| 1 | Introduction |
-| 2 | Terminology |
-| 3 | Use Cases and Requirements |
-| 4 | Transfer Models |
-| 5 | Voucher File Format |
-| 6 | Service Root URLs |
-| 7 | Push API Specification |
-| 8 | Pull API Specification |
-| 9 | Pull Authentication Protocol (PullAuth) |
-| 10 | Security Framework (defense-in-depth; see §12 for core model) |
-| 11 | Voucher Sequestering |
-| 12 | DID Integration (core security model) |
-| 13 | Error Handling and Retry Logic |
-| 14 | Security Considerations |
-| 15 | Implementation Guidelines |
+| §  | Section |
+|----|---------|
+| 1  | Introduction |
+| 2  | Terminology |
+| 3  | **Voucher Management Overview** (high-level tutorial: problem, enrollment, supply chains, alt keys) |
+| 4  | Use Cases and Requirements |
+| 5  | Transfer Models |
+| 6  | Voucher File Format |
+| 7  | Service Root URLs |
+| 8  | **Push API Specification** (bearer token required, references Auth protocol) |
+| 9  | **Pull API Specification** (clean — overview + API endpoints only, bearer token required, references Auth protocol) |
+| 10 | **Owner Key Authorization** (NEW standalone — FDOKeyAuth handshake, bearer token lifecycle, wire format, delegation, continuation security, API gateway compatibility, alternative token sources, implementation notes) |
+| 11 | **Security Framework** (FDOKeyAuth for both push+pull, threat model, DDoS) |
+| 12 | Voucher Sequestering |
+| 13 | DID Integration (core security model) |
+| 14 | Error Handling and Retry Logic |
+| 15 | Security Considerations |
+| 16 | Implementation Guidelines |
+| 17 | Future Enhancements |
+| 18 | Conclusion |
+| A  | **Appendix A: Optional Security Layers** (JWT, mTLS, business logic, purchase integration) |
 
 **Legend:** ✅ Implemented | ⚠️ Partial / Deviation | ❌ Not Implemented (MUST/SHOULD, security-relevant) | � Not Implemented (MAY, defense-in-depth, nice-to-have) | � Spec-optional (noted for awareness)
 
-**Security model note:** The spec's core security model is DID-based mutual authentication (§12). Token-based auth, mTLS, and business logic validation are **defense-in-depth layers** (§10, §12.7) — additive, not required. Items in this TODO are prioritized accordingly.
+**Security model note:** The spec's core security model is DID-based mutual authentication (§12). Token-based auth, mTLS, and business logic validation are **optional defense-in-depth layers** (Appendix A) — additive, not required. Items in this TODO are prioritized accordingly.
 
 ---
 
@@ -319,6 +323,7 @@ These are defense-in-depth layers (§12.7), optional spec features, or future en
 - [ ] Add `manufacturer` field to transmission record persistence (§7.1)
 - [ ] Add `timestamp` form field parsing in push receiver (§7.1)
 - [ ] Add `202 Accepted` response for async pipeline processing (§7.1)
+- [ ] **Push challenge-response authentication** — lightweight challenge-response for push endpoints (analogous to PullAuth) so Supplier proves key possession before uploading vouchers. Improves DDoS resilience by rejecting unauthorized push attempts before receiving/parsing the full voucher. Spec §17 Future Enhancements.
 
 ---
 

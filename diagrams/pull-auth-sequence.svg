@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 830" font-family="Segoe UI, Arial, sans-serif" font-size="12">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#334155"/>
+    </marker>
+    <marker id="arr-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#2563eb"/>
+    </marker>
+    <marker id="arr-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="410" y="28" text-anchor="middle" font-size="16" font-weight="bold" fill="#1e293b">FDOKeyAuth: Owner Key Authorization and API Operations</text>
+
+  <!-- Participant boxes -->
+  <rect x="40" y="45" width="220" height="40" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="150" y="63" text-anchor="middle" font-weight="bold" fill="#1e40af">Caller</text>
+  <text x="150" y="77" text-anchor="middle" font-size="10" fill="#64748b">(Owner pulling, or Supplier pushing)</text>
+
+  <rect x="540" y="45" width="220" height="40" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="650" y="63" text-anchor="middle" font-weight="bold" fill="#92400e">Server</text>
+  <text x="650" y="77" text-anchor="middle" font-size="10" fill="#64748b">(Pull endpoint, or Push endpoint)</text>
+
+  <!-- Lifelines -->
+  <line x1="150" y1="85" x2="150" y2="800" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="650" y1="85" x2="650" y2="800" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Phase 1 label: Authentication -->
+  <rect x="15" y="100" width="10" height="310" rx="3" fill="#2563eb"/>
+  <text x="10" y="260" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb" transform="rotate(-90, 10, 260)">AUTHENTICATION (CBOR)</text>
+
+  <!-- Step 1: FDOKeyAuth.Hello -->
+  <rect x="170" y="110" width="310" height="14" rx="2" fill="#eff6ff"/>
+  <text x="180" y="121" font-size="11" font-weight="bold" fill="#2563eb">1</text>
+  <text x="195" y="121" font-size="11" fill="#334155">POST {root}/auth/hello</text>
+  <line x1="165" y1="130" x2="635" y2="130" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+  <text x="400" y="146" text-anchor="middle" font-size="10" fill="#475569">FDOKeyAuth.Hello [CallerKey, Nonce_C]</text>
+  <text x="400" y="158" text-anchor="middle" font-size="10" font-style="italic" fill="#64748b">"Here is my enrolled key — authenticate me"</text>
+
+  <!-- Server processing -->
+  <rect x="630" y="165" width="150" height="42" rx="4" fill="#fefce8" stroke="#d97706" stroke-width="0.5"/>
+  <text x="705" y="179" text-anchor="middle" font-size="10" fill="#475569">Validates key</text>
+  <text x="705" y="191" text-anchor="middle" font-size="10" fill="#475569">Generates challenge</text>
+  <text x="705" y="203" text-anchor="middle" font-size="10" fill="#475569">Signs with Server key</text>
+
+  <!-- Step 2: FDOKeyAuth.Challenge -->
+  <rect x="280" y="215" width="310" height="14" rx="2" fill="#eff6ff"/>
+  <text x="575" y="226" font-size="11" font-weight="bold" fill="#2563eb">2</text>
+  <text x="290" y="226" font-size="11" fill="#334155">200 OK — FDOKeyAuth.Challenge</text>
+  <line x1="635" y1="235" x2="165" y2="235" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+  <text x="400" y="251" text-anchor="middle" font-size="10" fill="#475569">FDOKeyAuth.Challenge [SessionId, Nonce_S, Nonce_C, Hash, ServerSig]</text>
+  <text x="400" y="263" text-anchor="middle" font-size="10" font-style="italic" fill="#64748b">"Prove you hold the private key — sign this challenge"</text>
+
+  <!-- Caller processing -->
+  <rect x="30" y="272" width="150" height="34" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="0.5"/>
+  <text x="105" y="286" text-anchor="middle" font-size="10" fill="#475569">Verifies ServerSig</text>
+  <text x="105" y="298" text-anchor="middle" font-size="10" fill="#475569">Signs proof with Caller Key</text>
+
+  <!-- Step 3: FDOKeyAuth.Prove -->
+  <rect x="170" y="315" width="310" height="14" rx="2" fill="#eff6ff"/>
+  <text x="180" y="326" font-size="11" font-weight="bold" fill="#2563eb">3</text>
+  <text x="195" y="326" font-size="11" fill="#334155">POST {root}/auth/prove</text>
+  <line x1="165" y1="335" x2="635" y2="335" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+  <text x="400" y="351" text-anchor="middle" font-size="10" fill="#475569">FDOKeyAuth.Prove [SessionId, Nonce_S, Hash, CallerSig]</text>
+  <text x="400" y="363" text-anchor="middle" font-size="10" font-style="italic" fill="#64748b">"Here is cryptographic proof I hold the enrolled key"</text>
+
+  <!-- Server verification -->
+  <rect x="630" y="370" width="150" height="34" rx="4" fill="#fefce8" stroke="#d97706" stroke-width="0.5"/>
+  <text x="705" y="384" text-anchor="middle" font-size="10" fill="#475569">Verifies signature</text>
+  <text x="705" y="396" text-anchor="middle" font-size="10" fill="#475569">Issues bearer token</text>
+
+  <!-- Step 4: FDOKeyAuth.Result -->
+  <rect x="280" y="410" width="310" height="14" rx="2" fill="#dcfce7"/>
+  <text x="575" y="421" font-size="11" font-weight="bold" fill="#16a34a">4</text>
+  <text x="290" y="421" font-size="11" fill="#334155">200 OK — FDOKeyAuth.Result</text>
+  <line x1="635" y1="430" x2="165" y2="430" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arr-green)"/>
+  <text x="400" y="446" text-anchor="middle" font-size="10" fill="#475569">FDOKeyAuth.Result [Status, SessionToken, ExpiresAt, KeyFingerprint]</text>
+  <text x="400" y="458" text-anchor="middle" font-size="10" font-style="italic" fill="#16a34a">"Authenticated — use this bearer token for all subsequent requests"</text>
+
+  <!-- Divider: auth complete -->
+  <line x1="50" y1="475" x2="770" y2="475" stroke="#16a34a" stroke-width="1" stroke-dasharray="6,3"/>
+  <rect x="290" y="468" width="230" height="16" rx="3" fill="#dcfce7"/>
+  <text x="405" y="480" text-anchor="middle" font-size="10" font-weight="bold" fill="#16a34a">CBOR auth complete → JSON Push/Pull API</text>
+
+  <!-- Phase 2 label: Operations -->
+  <rect x="15" y="495" width="10" height="280" rx="3" fill="#16a34a"/>
+  <text x="10" y="640" text-anchor="middle" font-size="11" font-weight="bold" fill="#16a34a" transform="rotate(-90, 10, 640)">OPERATIONS (JSON + Bearer Token)</text>
+
+  <!-- Pull example -->
+  <rect x="110" y="500" width="580" height="78" rx="4" fill="#f0fdf4" stroke="#16a34a" stroke-width="0.5" stroke-dasharray="3,2"/>
+  <text x="400" y="515" text-anchor="middle" font-size="10" font-weight="bold" fill="#16a34a">Pull Operations (Owner authenticated with Owner Key)</text>
+  <text x="195" y="531" font-size="10" fill="#334155">GET {root}  Authorization: Bearer &lt;token&gt;</text>
+  <line x1="165" y1="538" x2="635" y2="538" stroke="#16a34a" stroke-width="1" marker-end="url(#arr-green)"/>
+  <text x="400" y="552" text-anchor="middle" font-size="10" fill="#475569">List vouchers / Download .fdoov files (scoped to Owner Key)</text>
+  <line x1="635" y1="558" x2="165" y2="558" stroke="#16a34a" stroke-width="1" marker-end="url(#arr-green)"/>
+  <text x="400" y="572" text-anchor="middle" font-size="10" fill="#475569">200 OK — JSON list or voucher file</text>
+
+  <!-- OR divider -->
+  <rect x="365" y="585" width="70" height="18" rx="9" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="400" y="598" text-anchor="middle" font-size="11" font-weight="bold" fill="#64748b">— OR —</text>
+
+  <!-- Push example -->
+  <rect x="110" y="610" width="580" height="78" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="0.5" stroke-dasharray="3,2"/>
+  <text x="400" y="625" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">Push Operations (Supplier authenticated with Supplier Key)</text>
+  <text x="195" y="641" font-size="10" fill="#334155">POST {root}  Authorization: Bearer &lt;token&gt;</text>
+  <line x1="165" y1="648" x2="635" y2="648" stroke="#d97706" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="400" y="662" text-anchor="middle" font-size="10" fill="#475569">Submit voucher (.fdoov) / Query status</text>
+  <line x1="635" y1="668" x2="165" y2="668" stroke="#d97706" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="400" y="682" text-anchor="middle" font-size="10" fill="#475569">200 OK — accepted / status</text>
+
+  <!-- Ellipsis for more operations -->
+  <text x="400" y="708" text-anchor="middle" font-size="14" fill="#94a3b8">. . .</text>
+  <text x="400" y="724" text-anchor="middle" font-size="10" fill="#94a3b8">Multiple push or pull operations using same bearer token</text>
+
+  <!-- Token expiry -->
+  <rect x="120" y="740" width="560" height="50" rx="6" fill="#fef2f2" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="400" y="758" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">Bearer Token Expires (recommended TTL: 1 hour)</text>
+  <text x="400" y="774" text-anchor="middle" font-size="10" fill="#475569">Server returns 401 Unauthorized with header:  X-FDO-ReAuth: required</text>
+  <text x="400" y="786" text-anchor="middle" font-size="10" fill="#475569">Caller re-authenticates by starting a new FDOKeyAuth.Hello (step 1)</text>
+</svg>

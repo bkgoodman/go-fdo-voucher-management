@@ -43,5 +43,4 @@ tests/tests/
 # Temporary files
 *.tmp
 *.temp
-fdo-appnote-voucher-transfer.bs
 FIDO-IoT-spec.bs

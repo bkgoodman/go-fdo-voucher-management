@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 680" font-family="Segoe UI, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#1e293b">FDO Voucher Management: Enrollment and Transfer</text>
+
+  <!-- Phase labels -->
+  <rect x="20" y="50" width="860" height="24" rx="4" fill="#f1f5f9"/>
+  <text x="240" y="66" text-anchor="middle" font-size="12" font-weight="bold" fill="#64748b">PHASE 1: ENROLLMENT (one-time setup)</text>
+  <rect x="20" y="360" width="860" height="24" rx="4" fill="#f0fdf4"/>
+  <text x="240" y="376" text-anchor="middle" font-size="12" font-weight="bold" fill="#16a34a">PHASE 2: VOUCHER TRANSFER (per device)</text>
+
+  <!-- === PHASE 1: ENROLLMENT === -->
+
+  <!-- End-User box -->
+  <rect x="40" y="90" width="200" height="110" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="140" y="112" text-anchor="middle" font-weight="bold" fill="#1e40af">End-User</text>
+  <text x="140" y="130" text-anchor="middle" font-size="11" fill="#475569">Management Service</text>
+  <text x="140" y="150" text-anchor="middle" font-size="11" fill="#475569">generates a DID:</text>
+  <text x="140" y="170" text-anchor="middle" font-size="10" font-family="monospace" fill="#7c3aed">did:web:owner.example.com</text>
+  <text x="140" y="188" text-anchor="middle" font-size="10" fill="#475569">(key + push/pull URLs)</text>
+
+  <!-- Supplier box -->
+  <rect x="380" y="90" width="200" height="110" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="480" y="112" text-anchor="middle" font-weight="bold" fill="#92400e">Supplier</text>
+  <text x="480" y="130" text-anchor="middle" font-size="11" fill="#475569">Mfg / Reseller</text>
+  <text x="480" y="150" text-anchor="middle" font-size="11" fill="#475569">generates a DID:</text>
+  <text x="480" y="170" text-anchor="middle" font-size="10" font-family="monospace" fill="#7c3aed">did:web:supplier.example.com</text>
+  <text x="480" y="188" text-anchor="middle" font-size="10" fill="#475569">(key + push/pull URLs)</text>
+
+  <!-- DID Exchange arrows -->
+  <line x1="242" y1="128" x2="378" y2="128" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="310" y="122" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">Owner DID</text>
+  <line x1="378" y1="158" x2="242" y2="158" stroke="#d97706" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="310" y="176" text-anchor="middle" font-size="11" font-weight="bold" fill="#92400e">Supplier DID</text>
+
+  <!-- How enrollment happens -->
+  <rect x="260" y="210" width="220" height="60" rx="6" fill="#fff" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="370" y="230" text-anchor="middle" font-size="11" fill="#475569">DID exchanged via:</text>
+  <text x="370" y="248" text-anchor="middle" font-size="11" fill="#475569">web portal, purchase order, email, API</text>
+  <text x="370" y="263" text-anchor="middle" font-size="10" fill="#94a3b8">(a DID is just a short string)</text>
+
+  <!-- What enrollment gives you -->
+  <rect x="40" y="285" width="540" height="60" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+  <text x="310" y="303" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e40af">After enrollment, each party knows:</text>
+  <text x="310" y="320" text-anchor="middle" font-size="11" fill="#475569">Other party's public key (for signing/verifying vouchers)</text>
+  <text x="310" y="337" text-anchor="middle" font-size="11" fill="#475569">Other party's push/pull service URLs (for transferring vouchers)</text>
+
+  <!-- Supply chain note -->
+  <rect x="620" y="90" width="250" height="200" rx="8" fill="#faf5ff" stroke="#a855f7" stroke-width="1"/>
+  <text x="745" y="112" text-anchor="middle" font-weight="bold" font-size="12" fill="#7e22ce">Supply Chain</text>
+  <text x="745" y="134" text-anchor="middle" font-size="11" fill="#475569">Each arrow requires its own</text>
+  <text x="745" y="150" text-anchor="middle" font-size="11" fill="#475569">DID enrollment:</text>
+  <text x="640" y="178" font-size="11" fill="#475569">Mfg</text>
+  <line x1="660" y1="174" x2="720" y2="174" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="728" y="178" font-size="11" fill="#475569">Owner</text>
+  <text x="640" y="208" font-size="11" fill="#475569">Mfg</text>
+  <line x1="660" y1="204" x2="700" y2="204" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="708" y="208" font-size="11" fill="#475569">Reseller</text>
+  <line x1="760" y1="204" x2="800" y2="204" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="808" y="208" font-size="11" fill="#475569">Owner</text>
+  <text x="640" y="238" font-size="11" fill="#475569">Mfg</text>
+  <line x1="660" y1="234" x2="695" y2="234" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="700" y="238" font-size="11" fill="#475569">R1</text>
+  <line x1="715" y1="234" x2="750" y2="234" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="755" y="238" font-size="11" fill="#475569">R2</text>
+  <line x1="770" y1="234" x2="810" y2="234" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="818" y="238" font-size="11" fill="#475569">Owner</text>
+  <text x="745" y="268" text-anchor="middle" font-size="10" fill="#94a3b8">Each hop = DID exchange</text>
+  <text x="745" y="282" text-anchor="middle" font-size="10" fill="#94a3b8">+ voucher sign-over</text>
+
+  <!-- === PHASE 2: TRANSFER === -->
+
+  <!-- Supplier box (phase 2) -->
+  <rect x="40" y="400" width="180" height="80" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="130" y="425" text-anchor="middle" font-weight="bold" fill="#92400e">Supplier</text>
+  <text x="130" y="445" text-anchor="middle" font-size="11" fill="#475569">Signs voucher over to</text>
+  <text x="130" y="460" text-anchor="middle" font-size="11" fill="#475569">Owner's key (from DID)</text>
+
+  <!-- Push path -->
+  <rect x="320" y="395" width="260" height="44" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="450" y="412" text-anchor="middle" font-size="12" font-weight="bold" fill="#16a34a">Option A: Push</text>
+  <text x="450" y="428" text-anchor="middle" font-size="11" fill="#475569">Supplier POSTs voucher to Owner's URL</text>
+  <line x1="222" y1="418" x2="318" y2="418" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <!-- Pull path -->
+  <rect x="320" y="450" width="260" height="44" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="450" y="467" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">Option B: Pull</text>
+  <text x="450" y="483" text-anchor="middle" font-size="11" fill="#475569">Owner authenticates &amp; fetches from Supplier</text>
+  <line x1="318" y1="472" x2="222" y2="472" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- Owner box (phase 2) -->
+  <rect x="680" y="400" width="180" height="80" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="770" y="425" text-anchor="middle" font-weight="bold" fill="#1e40af">End-User</text>
+  <text x="770" y="445" text-anchor="middle" font-size="11" fill="#475569">Verifies voucher was</text>
+  <text x="770" y="460" text-anchor="middle" font-size="11" fill="#475569">signed by enrolled supplier</text>
+  <line x1="582" y1="418" x2="678" y2="418" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <line x1="678" y1="472" x2="582" y2="472" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- Alt transfer note -->
+  <rect x="320" y="505" width="260" height="44" rx="6" fill="#fff" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="450" y="522" text-anchor="middle" font-size="12" font-weight="bold" fill="#64748b">Option C: Out-of-Band</text>
+  <text x="450" y="538" text-anchor="middle" font-size="11" fill="#475569">Email, download portal, USB drive...</text>
+
+  <!-- Auth callout -->
+  <rect x="40" y="570" width="820" height="95" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="450" y="592" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e293b">Protocol-Native Authentication (no extra credentials needed)</text>
+  <text x="60" y="616" font-size="12" fill="#475569"><tspan font-weight="bold" fill="#16a34a">Push:</tspan> Supplier's voucher signature is verified against Supplier's enrolled DID key</text>
+  <text x="60" y="636" font-size="12" fill="#475569"><tspan font-weight="bold" fill="#2563eb">Pull:</tspan> Owner proves possession of Owner Key via cryptographic challenge-response (PullAuth)</text>
+  <text x="60" y="656" font-size="12" fill="#475569"><tspan font-weight="bold" fill="#64748b">Both:</tspan> DID enrollment provides all keys and URLs — no tokens, passwords, or API keys required</text>
+</svg>
