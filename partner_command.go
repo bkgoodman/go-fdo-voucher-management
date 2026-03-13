@@ -55,7 +55,7 @@ func partnersAddCmd() {
 	disabled := fs.Bool("disabled", false, "Add in disabled state")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	jsonOutput := fs.Bool("json", false, "Output as JSON")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *id == "" {
 		fmt.Fprintf(os.Stderr, "error: -id is required\n")
@@ -84,7 +84,7 @@ func partnersAddCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewPartnerStore(db)
 	if err := store.Init(context.Background()); err != nil {
@@ -149,7 +149,7 @@ func partnersAddCmd() {
 	if *jsonOutput {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(p)
+		_ = enc.Encode(p)
 	} else {
 		fmt.Printf("Partner %q added successfully\n", *id)
 		fmt.Printf("  Supply:      %v\n", p.CanSupplyVouchers)
@@ -175,7 +175,7 @@ func partnersListCmd() {
 	filter := fs.String("filter", "", "Filter by capability: supply, receive (empty = all)")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	jsonOutput := fs.Bool("json", false, "Output as JSON")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -188,7 +188,7 @@ func partnersListCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewPartnerStore(db)
 	if err := store.Init(context.Background()); err != nil {
@@ -205,7 +205,7 @@ func partnersListCmd() {
 	if *jsonOutput {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(partners)
+		_ = enc.Encode(partners)
 		return
 	}
 
@@ -247,7 +247,7 @@ func partnersShowCmd() {
 	id := fs.String("id", "", "Partner ID (required)")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	jsonOutput := fs.Bool("json", false, "Output as JSON")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *id == "" {
 		fmt.Fprintf(os.Stderr, "error: -id is required\n")
@@ -265,7 +265,7 @@ func partnersShowCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewPartnerStore(db)
 	if err := store.Init(context.Background()); err != nil {
@@ -282,7 +282,7 @@ func partnersShowCmd() {
 	if *jsonOutput {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(p)
+		_ = enc.Encode(p)
 		return
 	}
 
@@ -319,7 +319,7 @@ func partnersRemoveCmd() {
 	fs := flag.NewFlagSet("partners remove", flag.ExitOnError)
 	id := fs.String("id", "", "Partner ID to remove (required)")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *id == "" {
 		fmt.Fprintf(os.Stderr, "error: -id is required\n")
@@ -337,7 +337,7 @@ func partnersRemoveCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewPartnerStore(db)
 	if err := store.Init(context.Background()); err != nil {
@@ -356,7 +356,7 @@ func partnersRemoveCmd() {
 func partnersExportCmd() {
 	fs := flag.NewFlagSet("partners export", flag.ExitOnError)
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -369,7 +369,7 @@ func partnersExportCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewPartnerStore(db)
 	if err := store.Init(context.Background()); err != nil {

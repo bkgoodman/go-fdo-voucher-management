@@ -144,8 +144,7 @@ func runServer() {
 	fs := flag.NewFlagSet("server", flag.ExitOnError)
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	debug := fs.Bool("debug", false, "Enable debug logging")
-	fs.Parse(os.Args[2:])
-
+	_ = fs.Parse(os.Args[2:])
 	// Setup logging
 	if *debug {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
@@ -166,7 +165,7 @@ func runServer() {
 		slog.Error("failed to open database", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 
@@ -366,7 +365,7 @@ func runServer() {
 		slog.Error("server shutdown error", "error", err)
 	}
 
-	db.Close()
+	_ = db.Close()
 	slog.Info("server stopped")
 }
 
@@ -407,7 +406,7 @@ func vouchersListCmd() {
 	serial := fs.String("serial", "", "Filter by serial number")
 	limit := fs.Int("limit", 50, "Maximum results")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -420,7 +419,7 @@ func vouchersListCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -467,7 +466,7 @@ func vouchersShowCmd() {
 	fs := flag.NewFlagSet("vouchers show", flag.ExitOnError)
 	guid := fs.String("guid", "", "GUID to show")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *guid == "" {
 		fmt.Fprintf(os.Stderr, "error: -guid is required\n")
@@ -485,7 +484,7 @@ func vouchersShowCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewVoucherTransmissionStore(db)
 	rec, err := store.FetchLatestByGUID(context.Background(), *guid)
@@ -531,7 +530,7 @@ func vouchersRetryCmd() {
 	fs := flag.NewFlagSet("vouchers retry", flag.ExitOnError)
 	guid := fs.String("guid", "", "GUID to retry")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *guid == "" {
 		fmt.Fprintf(os.Stderr, "error: -guid is required\n")
@@ -549,7 +548,7 @@ func vouchersRetryCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := NewVoucherTransmissionStore(db)
 	rec, err := store.FetchLatestByGUID(context.Background(), *guid)
@@ -575,7 +574,7 @@ func vouchersGrantsCmd() {
 	identityType := fs.String("type", "", "Filter by identity type (owner_key, custodian, purchaser_token)")
 	limit := fs.Int("limit", 100, "Maximum results")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -588,7 +587,7 @@ func vouchersGrantsCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -637,7 +636,7 @@ func vouchersCustodiansCmd() {
 	fingerprint := fs.String("fingerprint", "", "Show vouchers for a specific custodian fingerprint")
 	limit := fs.Int("limit", 50, "Maximum results")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -650,7 +649,7 @@ func vouchersCustodiansCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -738,7 +737,7 @@ func tokensAddCmd() {
 	description := fs.String("description", "", "Token description")
 	expires := fs.Int("expires", 0, "Expiration in hours")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *token == "" {
 		fmt.Fprintf(os.Stderr, "error: -token is required\n")
@@ -756,7 +755,7 @@ func tokensAddCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	manager := NewVoucherReceiverTokenManager(db)
 	if err := manager.AddReceiverToken(context.Background(), *token, *description, *expires); err != nil {
@@ -770,7 +769,7 @@ func tokensAddCmd() {
 func tokensListCmd() {
 	fs := flag.NewFlagSet("tokens list", flag.ExitOnError)
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -783,7 +782,7 @@ func tokensListCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	manager := NewVoucherReceiverTokenManager(db)
 	tokens, err := manager.ListReceiverTokens(context.Background())
@@ -823,7 +822,7 @@ func tokensDeleteCmd() {
 	fs := flag.NewFlagSet("tokens delete", flag.ExitOnError)
 	token := fs.String("token", "", "Token to delete")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *token == "" {
 		fmt.Fprintf(os.Stderr, "error: -token is required\n")
@@ -841,7 +840,7 @@ func tokensDeleteCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	manager := NewVoucherReceiverTokenManager(db)
 	if err := manager.DeleteReceiverToken(context.Background(), *token); err != nil {
@@ -875,7 +874,7 @@ func keysExportCmd() {
 	fs := flag.NewFlagSet("keys export", flag.ExitOnError)
 	output := fs.String("output", "", "Output file for public key")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *output == "" {
 		fmt.Fprintf(os.Stderr, "error: -output is required\n")
@@ -893,7 +892,7 @@ func keysExportCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// For now, just create a placeholder PEM file
 	// In a real implementation, this would export the actual owner key from the database
@@ -914,7 +913,7 @@ vJqLKqVJVLVdvJqLKqVJVLVdvJqLKqVJVLVdvJqLKqVJVLVdvJqLKqVJVA==
 func keysShowCmd() {
 	fs := flag.NewFlagSet("keys show", flag.ExitOnError)
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -952,7 +951,7 @@ func generateVoucherCmd() {
 	model := fs.String("model", "TEST-MODEL", "Device model number")
 	output := fs.String("output", "", "Output file for voucher (default: stdout)")
 	ownerKey := fs.String("owner-key", "", "Owner public key file (PEM format)")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	// Generate test voucher
 	var voucherPEM string

@@ -27,7 +27,7 @@ func TestParseDIDKey_P256(t *testing.T) {
 	if ecKey.Curve != elliptic.P256() {
 		t.Errorf("expected P-256 curve, got %s", ecKey.Curve.Params().Name)
 	}
-	if !ecKey.Curve.IsOnCurve(ecKey.X, ecKey.Y) {
+	if !ecKey.IsOnCurve(ecKey.X, ecKey.Y) {
 		t.Error("key is not on curve")
 	}
 }
@@ -48,7 +48,7 @@ func TestParseDIDKey_P384(t *testing.T) {
 	if ecKey.Curve != elliptic.P384() {
 		t.Errorf("expected P-384 curve, got %s", ecKey.Curve.Params().Name)
 	}
-	if !ecKey.Curve.IsOnCurve(ecKey.X, ecKey.Y) {
+	if !ecKey.IsOnCurve(ecKey.X, ecKey.Y) {
 		t.Error("key is not on curve")
 	}
 }

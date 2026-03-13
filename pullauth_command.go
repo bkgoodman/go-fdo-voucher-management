@@ -23,7 +23,7 @@ func runFDOKeyAuthCommand() {
 	delegateChainFile := fs.String("delegate-chain", "", "PEM-encoded delegate certificate chain file")
 	serverKeyFile := fs.String("server-key", "", "PEM-encoded Server public key file (for ServerSignature verification)")
 	jsonOutput := fs.Bool("json", false, "Output result as JSON")
-	fs.Parse(os.Args[2:])
+	_ = fs.Parse(os.Args[2:])
 
 	if *serverURL == "" {
 		fmt.Fprintf(os.Stderr, "error: -url is required\n")
@@ -55,7 +55,7 @@ func runFDOKeyAuthCommand() {
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(out)
+		_ = enc.Encode(out)
 	} else {
 		fmt.Printf("FDOKeyAuth succeeded!\n")
 		fmt.Printf("  Session Token:    %s\n", result.SessionToken)

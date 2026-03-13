@@ -160,11 +160,11 @@ Step 7: FDOKeyAuth Authentication (Alternative)
 ┌─────────────────────────────────────────────────────────────┐
 │ Second receives session token for voucher retrieval          │
 └─────────────────────────────────────────────────────────────┘
-```text
+```
 
 ## FDOKeyAuth Cryptographic Handshake
 
-```
+```text
 
 FDOKeyAuth Protocol Flow (Type-5 Authentication)
 
@@ -191,12 +191,11 @@ FDOKeyAuth Protocol Flow (Type-5 Authentication)
 ┌─────────────────────────────────────────────────────────────┐
 │ Authentication successful - Second can now pull vouchers    │
 └─────────────────────────────────────────────────────────────┘
-
-```text
+```
 
 ## Voucher Sign-Over Cryptography
 
-```
+```text
 
 Voucher Ownership Chain
 
@@ -232,8 +231,7 @@ Final Voucher (Customer → Device)
 │ ├─ Manufacturer Signature                                   │
 │ └─ Customer Signature (proves transfer to customer)         │
 └─────────────────────────────────────────────────────────────┘
-
-```text
+```
 
 ## Configuration Relationships
 
@@ -309,7 +307,7 @@ Common Failure Points and Recovery
 
 ## Supply Chain Mapping
 
-```
+```text
 
 Real-World Supply Chain Mapping
 
@@ -323,7 +321,6 @@ DID Resolution           Business Partner Discovery     Find partner endpoints
 Voucher Sign-over        Ownership Transfer Process      Transfer device rights
 Push Transmission        Automated Delivery             Proactive voucher send
 FDOKeyAuth Authentication  Secure Customer Portal         Authenticated access
-
 ```
 
 ## Timeline Visualization
@@ -354,7 +351,6 @@ Execution Timeline (seconds)
 │     ├─ FDOKeyAuth Handshake
 │     │
 │     └─ Verify Independent Identities
-
 ```
 
 These diagrams help visualize the complex interactions between components in the FDO voucher supply chain test.

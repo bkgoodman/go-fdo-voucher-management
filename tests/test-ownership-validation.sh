@@ -42,7 +42,7 @@ echo "[INFO] Server PID: $SERVER_PID"
 
 # Wait for server to start and port to be listening
 echo "[INFO] Waiting for server to be ready..."
-for i in {1..30}; do
+for _ in {1..30}; do
     if netstat -tlnp 2>/dev/null | grep -q ":8081 "; then
         echo "[PASS] Server ready"
         break

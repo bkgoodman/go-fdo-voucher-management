@@ -21,7 +21,7 @@ main() {
         log_success "Category 1 passed"
     else
         log_error "Category 1 failed"
-        ((failed++))
+        ((failed++)) || true
     fi
     
     log_info "Running Category 2: Ownership Validation Tests"
@@ -29,7 +29,7 @@ main() {
         log_success "Category 2 passed"
     else
         log_error "Category 2 failed"
-        ((failed++))
+        ((failed++)) || true
     fi
     
     log_info "Running Category 3: Pull Auth & DID Tests"
@@ -37,7 +37,7 @@ main() {
         log_success "Category 3 passed"
     else
         log_error "Category 3 failed"
-        ((failed++))
+        ((failed++)) || true
     fi
     
     log_info "Running Category 4: E2E DID Push-Pull Tests"
@@ -45,7 +45,7 @@ main() {
         log_success "Category 4 passed"
     else
         log_error "Category 4 failed"
-        ((failed++))
+        ((failed++)) || true
     fi
     
     log_info "Running Category 5: Simple Server Tests"
@@ -53,7 +53,7 @@ main() {
         log_success "Category 5 passed"
     else
         log_error "Category 5 failed"
-        ((failed++))
+        ((failed++)) || true
     fi
     
     log_info "Running Category 6: Dual-Instance Transmission Tests"
@@ -61,7 +61,7 @@ main() {
         log_success "Category 6 passed"
     else
         log_error "Category 6 failed"
-        ((failed++))
+        ((failed++)) || true
     fi
     
     log_info "Running Category 7: Visibility Walkthrough"
@@ -69,7 +69,7 @@ main() {
         log_success "Category 7 passed"
     else
         log_error "Category 7 failed"
-        ((failed++))
+        ((failed++)) || true
     fi
     
     cleanup_test_env

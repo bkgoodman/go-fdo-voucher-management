@@ -42,7 +42,7 @@ func mockValidator(token string) (*CallerIdentity, error) {
 func newTestStatusStore(t *testing.T) *VoucherTransmissionStore {
 	t.Helper()
 	db := testStatusDB(t)
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { _ = db.Close() })
 
 	store := NewVoucherTransmissionStore(db)
 	if err := store.Init(context.Background()); err != nil {

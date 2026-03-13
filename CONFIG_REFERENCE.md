@@ -31,7 +31,7 @@ did_minting:
 ## Top-Level
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `debug` | bool | `false` | Enable debug-level logging |
 
 ---
@@ -41,7 +41,7 @@ did_minting:
 HTTP server settings.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `addr` | string | `localhost:8080` | Listen address (`host:port`) |
 | `ext_addr` | string | `""` | External address if different from `addr` (e.g., behind a load balancer). Used for DID document construction if set. |
 | `use_tls` | bool | `false` | Enable TLS. **Note:** Currently not wired — the server always calls `ListenAndServe()`. Intended for reverse-proxy awareness (e.g., DID resolver uses HTTP vs HTTPS). |
@@ -54,7 +54,7 @@ HTTP server settings.
 SQLite database settings. All persistent state (transmissions, tokens, partners, audit log) is stored here.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `path` | string | `voucher_manager.db` | Path to SQLite database file. Created automatically on first run. |
 | `password` | string | `""` | Database encryption password (reserved for future use) |
 
@@ -65,7 +65,7 @@ SQLite database settings. All persistent state (transmissions, tokens, partners,
 Cryptographic key configuration for voucher signing operations.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `key_type` | string | `ec384` | Key algorithm. Options: `ec256` (P-256), `ec384` (P-384), `rsa2048`, `rsa3072` |
 | `first_time_init` | bool | `true` | Auto-generate a signing key on first run if none exists in the database |
 | `import_key_file` | string | `""` | Path to PEM-encoded private key to import instead of generating. Supports `PRIVATE KEY` (PKCS8), `RSA PRIVATE KEY` (PKCS1), `EC PRIVATE KEY` formats. |
@@ -77,7 +77,7 @@ Cryptographic key configuration for voucher signing operations.
 Inbound push endpoint — accepts vouchers from upstream suppliers (factories, manufacturers, resellers).
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `true` | Enable the HTTP receiver endpoint |
 | `endpoint` | string | `/api/v1/vouchers` | HTTP path for the push endpoint (the Push Service Root) |
 | `global_token` | string | `""` | Single bearer token accepted for all requests. If set, this token is always valid regardless of the token database. |
@@ -99,7 +99,7 @@ Inbound push endpoint — accepts vouchers from upstream suppliers (factories, m
 How vouchers are signed over to a new owner key.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `mode` | string | `internal` | Signing mode. Options: `internal` (use database key), `external` (call external command), `hsm` (reserved) |
 | `external_command` | string | `""` | Shell command for external signing. Receives voucher on stdin, returns signed voucher on stdout. |
 | `external_timeout` | duration | `30s` | Timeout for external signing command |
@@ -111,7 +111,7 @@ How vouchers are signed over to a new owner key.
 OVEExtra data assignment via external callback. Allows attaching arbitrary metadata to vouchers during the pipeline.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `false` | Enable OVEExtra data assignment |
 | `external_command` | string | `""` | Shell command with variable substitution: `{serialno}`, `{model}`. Must output a JSON map. |
 | `timeout` | duration | `10s` | Command timeout |
@@ -132,7 +132,7 @@ ove_extra_data:
 Next owner key resolution — determines which public key the voucher is signed over to.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `mode` | string | `static` | Resolution mode. Options: `static` (fixed key or DID), `dynamic` (external callback) |
 | `static_public_key` | string | `""` | PEM-encoded public key (inline string). Used when `mode: static`. |
 | `static_did` | string | `""` | DID URI (e.g., `did:web:customer.example.com:fdo`). Resolved to extract owner key and push endpoint. Used when `mode: static`. |
@@ -164,7 +164,7 @@ or
 Filesystem storage for voucher files.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `directory` | string | `data/vouchers` | Directory for storing `.fdoov` files, organized by GUID |
 
 ---
@@ -174,7 +174,7 @@ Filesystem storage for voucher files.
 External command for resolving the transmission destination URL per voucher.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `false` | Enable destination callback |
 | `external_command` | string | `""` | Shell command with `{serialno}`, `{model}`, `{guid}` variables. Must output an HTTP URL. |
 | `timeout` | duration | `10s` | Command timeout |
@@ -195,7 +195,7 @@ The pipeline resolves destinations in this order (first match wins):
 DID document caching and background refresh for partner trust store entries.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `false` | Enable DID document caching and background refresh worker |
 | `refresh_interval` | duration | `1h` | How often to re-fetch DID documents for known partners |
 | `max_age` | duration | `24h` | Maximum age before a cached DID document is considered stale |
@@ -210,7 +210,7 @@ DID document caching and background refresh for partner trust store entries.
 Outbound push — transmit signed vouchers to downstream endpoints.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `false` | Enable push transmission |
 | `url` | string | `""` | Static fallback push URL. Used when no callback, partner, or DID destination is found. |
 | `auth_token` | string | `""` | Bearer token sent with push requests to the static URL |
@@ -226,7 +226,7 @@ Outbound push — transmit signed vouchers to downstream endpoints.
 DID-based push destination resolution. When enabled, the pipeline resolves the next owner's DID to discover the `FDOVoucherRecipient` service URL.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `true` | Enable DID-based destination resolution for push |
 
 ---
@@ -236,7 +236,7 @@ DID-based push destination resolution. When enabled, the pipeline resolves the n
 Background worker that periodically retries failed or pending transmissions.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `true` | Enable the background retry loop |
 | `retry_interval` | duration | `8h` | How often to scan for retryable transmissions |
 | `max_attempts` | int | `5` | Maximum attempts before marking as permanently `failed` |
@@ -250,7 +250,7 @@ The retry worker uses exponential backoff with ±25% jitter. The base delay doub
 Voucher retention policy.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `keep_indefinitely` | bool | `true` | Keep all vouchers forever (overrides `purge_after`) |
 | `purge_after` | duration | `0` | Delete vouchers older than this duration. Only applies when `keep_indefinitely: false`. |
 
@@ -261,7 +261,7 @@ Voucher retention policy.
 Inbound pull — serve vouchers to authenticated recipients via the FDOKeyAuth protocol.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `false` | Enable FDOKeyAuth + Pull API endpoints |
 | `session_ttl` | duration | `60s` | FDOKeyAuth session lifetime (time to complete the 3-step handshake) |
 | `max_sessions` | int | `1000` | Maximum concurrent FDOKeyAuth sessions |
@@ -284,6 +284,7 @@ Partners can also be managed at runtime via the `partners` CLI command (see [CLI
 
 ```yaml
 partners:
+
   - id: "acme-mfg"
     can_supply: true
     did: "did:web:mfg.acme.com:vouchers"
@@ -298,7 +299,7 @@ partners:
 ### Partner fields
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `id` | string | **(required)** | Unique partner identifier |
 | `can_supply` | bool | `false` | Partner can supply vouchers to us (upstream). Their manufacturer key is trusted for signature verification. |
 | `can_receive` | bool | `false` | We push vouchers to this partner (downstream). Used by the destination resolver. |
@@ -318,7 +319,7 @@ At least one of `can_supply` or `can_receive` should be set (otherwise the partn
 DID document generation and serving. Creates a `did:web` identity for this service, including an owner key and service endpoints.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| ------- | ------ | --------- | ------------- |
 | `enabled` | bool | `false` | Enable DID minting |
 | `host` | string | `""` | Hostname for `did:web` URI (e.g., `vouchers.example.com` or `localhost:8080`) |
 | `path` | string | `""` | Optional sub-path for `did:web` (e.g., `fdo` → `did:web:example.com:fdo`) |
@@ -342,6 +343,7 @@ did_minting:
 ```
 
 This generates a DID document at `https://vouchers.example.com/.well-known/did.json` with:
+
 - Owner public key (from the generated or imported key)
 - `FDOVoucherRecipient` service entry (push endpoint)
 - `FDOVoucherHolder` service entry (pull endpoint)
@@ -382,6 +384,7 @@ did_minting:
   serve_did_document: true
 
 partners:
+
   - id: "factory-a"
     can_supply: true
     did: "did:key:z6Mk..."
@@ -437,9 +440,11 @@ retry_worker:
   enabled: true
 
 partners:
+
   - id: "upstream-oem"
     can_supply: true
     did: "did:web:oem.example.com:fdo"
+
   - id: "buyer-corp"
     can_receive: true
     push_url: "https://buyer.example.com/api/v1/vouchers"

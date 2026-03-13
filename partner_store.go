@@ -6,9 +6,7 @@ package main
 import (
 	"context"
 	"crypto"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -204,7 +202,7 @@ func (s *PartnerStore) List(ctx context.Context, filter string) ([]*Partner, err
 	if err != nil {
 		return nil, fmt.Errorf("partner store: list failed: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var partners []*Partner
 	for rows.Next() {
@@ -228,7 +226,7 @@ func (s *PartnerStore) ListDIDWebPartners(ctx context.Context) ([]*Partner, erro
 	if err != nil {
 		return nil, fmt.Errorf("partner store: list did:web partners failed: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var partners []*Partner
 	for rows.Next() {
@@ -434,18 +432,6 @@ func fingerprintPEM(pemStr string) (string, error) {
 		return "", fmt.Errorf("failed to compute fingerprint")
 	}
 	return fp, nil
-}
-
-// fingerprintRawKey computes a hex SHA-256 fingerprint from raw PEM bytes
-// for quick comparison. Falls back to raw SHA-256 if PEM parsing fails.
-func fingerprintRawKey(pemBytes []byte) string {
-	pub, err := LoadPublicKeyFromPEM(pemBytes)
-	if err != nil {
-		// Fallback: hash the raw bytes
-		h := sha256.Sum256(pemBytes)
-		return hex.EncodeToString(h[:])
-	}
-	return FingerprintPublicKeyHex(pub)
 }
 
 func nullStr(s string) interface{} {

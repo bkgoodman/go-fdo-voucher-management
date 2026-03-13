@@ -31,8 +31,10 @@ test_receive_valid_voucher() {
     local response
     response=$(send_voucher "$test_voucher" "http://localhost:8080/api/v1/vouchers" "" "TEST-SERIAL-001" "TEST-MODEL-001")
     
-    local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n-1)
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | head -n-1)
     
     assert_http_status "200" "$http_code" "Voucher received successfully"
     

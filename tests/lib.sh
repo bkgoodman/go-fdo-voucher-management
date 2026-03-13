@@ -179,7 +179,7 @@ start_server() {
         # Check if process is still alive
         if ! kill -0 $pid 2>/dev/null; then
             log_error "Failed to start $instance_name - process died" >&2
-            cat "$TEST_DATA_DIR/${instance_name}.log" 2>/dev/null | tail -5 | while read line; do log_error "$line" >&2; done
+            cat "$TEST_DATA_DIR/${instance_name}.log" 2>/dev/null | tail -5 | while read -r line; do log_error "$line" >&2; done
             return 1
         fi
         
@@ -197,8 +197,8 @@ start_server() {
     done
     
     log_error "Failed to start $instance_name - timeout waiting for server" >&2
-    cat "$TEST_DATA_DIR/${instance_name}.log" 2>/dev/null | tail -10 | while read line; do log_error "$line" >&2; done
-    kill $pid 2>/dev/null || true
+    cat "$TEST_DATA_DIR/${instance_name}.log" 2>/dev/null | tail -10 | while read -r line; do log_error "$line" >&2; done
+    kill "$pid" 2>/dev/null || true
     return 1
 }
 
@@ -212,18 +212,18 @@ stop_server() {
     fi
     
     log_info "Stopping $instance_name (PID: $pid)..."
-    kill $pid 2>/dev/null || true
+    kill "$pid" 2>/dev/null || true
     
     # Wait for graceful shutdown
     local max_attempts=10
     local attempt=0
-    while [ $attempt -lt $max_attempts ] && kill -0 $pid 2>/dev/null; do
+    while [ $attempt -lt $max_attempts ] && kill -0 "$pid" 2>/dev/null; do
         sleep 0.5
         ((attempt++))
     done
     
     # Force kill if still running
-    kill -9 $pid 2>/dev/null || true
+    kill -9 "$pid" 2>/dev/null || true
     log_success "$instance_name stopped"
 }
 
@@ -249,8 +249,10 @@ send_voucher() {
     response=$(curl "${curl_opts[@]}" "$endpoint")
     
     # Last line is HTTP status code
-    local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n-1)
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | head -n-1)
     
     echo "$body"
     echo "$http_code"
@@ -338,14 +340,16 @@ wait_for() {
     
     log_info "$message..."
     
-    local start=$(date +%s)
+    local start
+    start=$(date +%s)
     while true; do
         if eval "$condition"; then
             return 0
         fi
         
-        local now=$(date +%s)
-        if [ $((now - start)) -gt $timeout ]; then
+        local now
+        now=$(date +%s)
+        if [ $((now - start)) -gt "$timeout" ]; then
             log_error "Timeout waiting for: $message"
             return 1
         fi
@@ -359,7 +363,7 @@ check_binary() {
     if [ ! -f "$PROJECT_ROOT/fdo-voucher-manager" ]; then
         log_error "Binary not found: $PROJECT_ROOT/fdo-voucher-manager"
         log_info "Building project..."
-        cd "$PROJECT_ROOT"
+        cd "$PROJECT_ROOT" || exit
         go build -o fdo-voucher-manager || {
             log_error "Failed to build project"
             return 1

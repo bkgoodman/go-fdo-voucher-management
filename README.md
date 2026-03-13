@@ -77,6 +77,7 @@ Start the HTTP server:
 ```
 
 The server will:
+
 1. Listen on the configured address (default: localhost:8080)
 2. Accept vouchers at the configured endpoint (default: /api/v1/vouchers)
 3. Store vouchers to database and filesystem
@@ -86,12 +87,12 @@ The server will:
 
 ### CLI Commands
 
-```
+```bash
 fdo-voucher-manager <subcommand> [options]
 ```
 
 | Subcommand | Description |
-|---|---|
+| --- | --- |
 | `server` | Start the HTTP server |
 | `vouchers` | Manage voucher records (list, show, assign, unassign, retry, grants, custodians) |
 | `tokens` | Manage receiver authentication tokens (add, list, delete) |
@@ -378,7 +379,7 @@ Audit log of received vouchers:
 
 ## Architecture
 
-```
+```text
 HTTP Request
     ↓
 VoucherReceiverHandler (authentication, parsing, storage)

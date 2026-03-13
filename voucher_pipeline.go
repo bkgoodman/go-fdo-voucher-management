@@ -115,11 +115,10 @@ func (p *VoucherPipeline) ProcessVoucher(ctx context.Context, voucher *fdo.Vouch
 
 	// Step 3: Sign voucher if configured
 	if p.config.VoucherSigning.Mode != "" && nextOwner != nil {
-		signedVoucher, err := p.signingService.SignVoucher(ctx, voucher, nextOwner, serial, model, extraData)
+		_, err := p.signingService.SignVoucher(ctx, voucher, nextOwner, serial, model, extraData)
 		if err != nil {
 			slog.Warn("pipeline: voucher signing failed, forwarding original voucher", "guid", guid, "error", err)
 		} else {
-			voucher = signedVoucher
 			slog.Info("pipeline: voucher signed over to next owner", "guid", guid)
 		}
 	}

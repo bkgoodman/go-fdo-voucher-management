@@ -256,7 +256,7 @@ func (s *VoucherTransmissionStore) PendingForRetry(ctx context.Context, limit in
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pending voucher transmissions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanTransmissionRows(rows)
 }
@@ -291,7 +291,7 @@ func (s *VoucherTransmissionStore) ListTransmissions(ctx context.Context, status
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanTransmissionRows(rows)
 }
@@ -397,7 +397,7 @@ func (s *VoucherTransmissionStore) ListByOwner(ctx context.Context, ownerKeyFing
 	if err != nil {
 		return nil, fmt.Errorf("failed to query transmissions by owner: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanTransmissionRows(rows)
 }
@@ -504,7 +504,7 @@ func (s *VoucherTransmissionStore) ListAccessGrants(ctx context.Context, voucher
 	if err != nil {
 		return nil, fmt.Errorf("failed to list access grants: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var grants []AccessGrant
 	for rows.Next() {
@@ -541,7 +541,7 @@ func (s *VoucherTransmissionStore) ListByAccessGrant(ctx context.Context, identi
 	if err != nil {
 		return nil, fmt.Errorf("failed to query transmissions by access grant: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanTransmissionRows(rows)
 }
@@ -577,7 +577,7 @@ func (s *VoucherTransmissionStore) FetchBySerial(ctx context.Context, serial str
 	if err != nil {
 		return nil, fmt.Errorf("failed to query transmissions by serial: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanTransmissionRows(rows)
 }
@@ -648,7 +648,7 @@ func (s *VoucherTransmissionStore) ListAllAccessGrants(ctx context.Context, iden
 	if err != nil {
 		return nil, fmt.Errorf("failed to list access grants: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var grants []AccessGrant
 	for rows.Next() {
@@ -690,7 +690,7 @@ func (s *VoucherTransmissionStore) ListCustodians(ctx context.Context, limit int
 	if err != nil {
 		return nil, fmt.Errorf("failed to list custodians: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var summaries []CustodianSummary
 	for rows.Next() {
@@ -727,7 +727,7 @@ func (s *VoucherTransmissionStore) ListByCustodian(ctx context.Context, custodia
 	if err != nil {
 		return nil, fmt.Errorf("failed to query transmissions by custodian: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanTransmissionRows(rows)
 }

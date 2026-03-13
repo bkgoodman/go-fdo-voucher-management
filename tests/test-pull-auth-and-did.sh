@@ -51,8 +51,10 @@ test_did_document_serving() {
 
     local response
     response=$(curl -s -w "\n%{http_code}" "$BASE_URL/.well-known/did.json")
-    local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n-1)
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | head -n-1)
 
     assert_http_status "200" "$http_code" "DID document should be served at .well-known/did.json"
 

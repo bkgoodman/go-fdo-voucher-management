@@ -13,7 +13,7 @@ terminology and type tags.
 ### Wire-Format Changes (Breaking)
 
 | Old | New |
-|-----|-----|
+| ----- | ----- |
 | `"PullAuth.Challenge"` (COSE_Sign1 type tag) | `"FDOKeyAuth.Challenge"` |
 | `"PullAuth.Prove"` (COSE_Sign1 type tag) | `"FDOKeyAuth.Prove"` |
 | `"holder_id"` (CBOR map key in ServerInfo) | `"server_id"` |
@@ -25,7 +25,7 @@ provided.
 ### Go Type Renames
 
 | Old | New |
-|-----|-----|
+| ----- | ----- |
 | `PullAuthServer` | `FDOKeyAuthServer` |
 | `PullAuthClient` | `FDOKeyAuthClient` |
 | `PullAuthHello` | `FDOKeyAuthHello` |
@@ -41,7 +41,7 @@ provided.
 ### Struct Field Renames
 
 | Old | New | Affected Types |
-|-----|-----|----------------|
+| ----- | ----- | ---------------- |
 | `HolderKey` | `ServerKey` | `FDOKeyAuthServer` |
 | `LookupVouchers` | `LookupKey` | `FDOKeyAuthServer` |
 | `OwnerKey` | `CallerKey` | `FDOKeyAuthClient` |
@@ -182,8 +182,8 @@ dest := transfer.PushDestination{
 }
 ```
 
-Clients *MUST* support FDOKeyAuth for Push operations. If the client _also_ supports
-static token auth that is acceptable, but *push* is the primary one required
+Clients _MUST_ support FDOKeyAuth for Push operations. If the client _also_ supports
+static token auth that is acceptable, but _push_ is the primary one required
 in the specification, and certinally the one we need to focus on integration test.
 
 ## Config Changes
@@ -194,7 +194,7 @@ The `pullauth` CLI subcommand has been renamed to `fdokeyauth`. The old name
 ### New CLI flags
 
 | Old | New |
-|-----|-----|
+| ----- | ----- |
 | `-holder-key` | `-server-key` |
 
 ## Future Work

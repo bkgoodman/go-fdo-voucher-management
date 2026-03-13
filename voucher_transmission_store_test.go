@@ -23,7 +23,7 @@ func testTransmitDB(t *testing.T) *sql.DB {
 
 func TestTransmissionStoreInit(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -51,7 +51,7 @@ func TestTransmissionStoreInit(t *testing.T) {
 
 func TestCreatePendingAndFetch(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -114,7 +114,7 @@ func TestCreatePendingAndFetch(t *testing.T) {
 
 func TestMarkAssigned(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -159,7 +159,7 @@ func TestMarkAssigned(t *testing.T) {
 
 func TestAccessGrantInsertAndCheck(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -251,7 +251,7 @@ func TestAccessGrantInsertAndCheck(t *testing.T) {
 
 func TestListByAccessGrant(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -328,7 +328,7 @@ func TestListByAccessGrant(t *testing.T) {
 
 func TestFetchBySerial(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -372,7 +372,7 @@ func TestFetchBySerial(t *testing.T) {
 
 func TestMarkUnassigned(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -431,7 +431,7 @@ func TestMarkUnassigned(t *testing.T) {
 
 func TestMarkUnassigned_NotAssigned(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -465,7 +465,7 @@ func TestMarkUnassigned_NotAssigned(t *testing.T) {
 
 func TestRemoveAccessGrantsForVoucher(t *testing.T) {
 	db := testTransmitDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)

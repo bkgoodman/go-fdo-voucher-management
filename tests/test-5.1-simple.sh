@@ -57,7 +57,7 @@ VOUCHER_COUNT=0
 for i in {1..10}; do
     sleep 2
     VOUCHER_COUNT=$(find "$SCRIPT_DIR/data/vouchers-b" -name "*.pem" 2>/dev/null | wc -l)
-    if [ $VOUCHER_COUNT -gt 0 ]; then
+    if [ "$VOUCHER_COUNT" -gt 0 ]; then
         echo "[INFO] Voucher received after $((i*2)) seconds"
         break
     fi
@@ -67,7 +67,7 @@ done
 echo "[INFO] Checking Instance B storage..."
 echo "[INFO] Vouchers in Instance B: $VOUCHER_COUNT"
 
-if [ $VOUCHER_COUNT -gt 0 ]; then
+if [ "$VOUCHER_COUNT" -gt 0 ]; then
     echo "[PASS] Instance B received voucher"
 else
     echo "[WARN] Instance B did not receive voucher (transmission may still be pending)"

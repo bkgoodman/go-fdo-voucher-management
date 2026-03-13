@@ -18,7 +18,7 @@ Before we call stuff done and complete, we must be able to:
 - `shellcheck` all shell scripts
 - Fix shell script formatting `shellcheck -s sh -f checkstyle -x ./...`
 - Stuff should have unit tests
-- User-visible stuff (commands, config file parameters, etc) should be documented. If not directly in README.md, in other .md docs which reference it. 
+- User-visible stuff (commands, config file parameters, etc) should be documented. If not directly in README.md, in other .md docs which reference it.
 
 ## Testing
 

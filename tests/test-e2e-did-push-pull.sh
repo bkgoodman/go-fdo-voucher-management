@@ -48,12 +48,12 @@ log_info "=== End-to-End DID Push + FDOKeyAuth Pull Test ==="
 # Kill any stale fdo-voucher-manager processes from previous runs
 # to prevent port conflicts that cause silent key mismatches.
 for port in $PORT_FIRST $PORT_SECOND; do
-    stale_pid=$(lsof -ti tcp:$port 2>/dev/null || true)
+    stale_pid=$(lsof -ti tcp:"$port" 2>/dev/null || true)
     if [ -n "$stale_pid" ]; then
         log_warn "Killing stale process on port $port (PID: $stale_pid)"
-        kill $stale_pid 2>/dev/null || true
+        kill "$stale_pid" 2>/dev/null || true
         sleep 0.5
-        kill -9 $stale_pid 2>/dev/null || true
+        kill -9 "$stale_pid" 2>/dev/null || true
     fi
 done
 
@@ -84,8 +84,10 @@ step_fetch_second_did() {
 
     local response
     response=$(curl -s -w "\n%{http_code}" "http://localhost:$PORT_SECOND/.well-known/did.json")
-    local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n-1)
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | head -n-1)
 
     assert_http_status "200" "$http_code" "Second's DID document should be served"
 
@@ -167,8 +169,10 @@ step_push_voucher_to_first() {
 
     local response
     response=$(send_voucher "$test_voucher" "http://localhost:$PORT_FIRST/api/v1/vouchers" "" "E2E-DID-SERIAL-001" "E2E-DID-MODEL-001")
-    local http_code=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | head -n-1)
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | head -n-1)
 
     assert_http_status "200" "$http_code" "Voucher accepted by First"
 

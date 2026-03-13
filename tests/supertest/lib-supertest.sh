@@ -343,6 +343,7 @@ gen_mfg_config() {
     if [ -f "$owner_pub_key" ]; then
         owner_key_block=$(sed 's/^/      /' "$owner_pub_key")
     else
+        # shellcheck disable=SC2001
         owner_key_block=$(echo "$owner_pub_key" | sed 's/^/      /')
     fi
 
@@ -371,7 +372,8 @@ gen_mfg_config() {
     if [ -n "$push_url" ]; then
         if [ -n "$push_auth_key" ] && [ -f "$push_auth_key" ]; then
             # FDOKeyAuth configuration
-            local auth_key_block=$(sed 's/^/      /' "$push_auth_key")
+            local auth_key_block
+            auth_key_block=$(sed 's/^/      /' "$push_auth_key")
             push_block="  push_service:
     enabled: true
     url: \"$push_url\"

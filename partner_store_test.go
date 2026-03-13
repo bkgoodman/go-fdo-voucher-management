@@ -23,7 +23,7 @@ func testDB(t *testing.T) *sql.DB {
 
 func TestPartnerStore_CRUD(t *testing.T) {
 	db := testDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewPartnerStore(db)
@@ -157,7 +157,7 @@ func TestPartnerStore_CRUD(t *testing.T) {
 
 func TestPartnerStore_ListDIDWebPartners(t *testing.T) {
 	db := testDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewPartnerStore(db)
@@ -196,7 +196,7 @@ func TestPartnerStore_ListDIDWebPartners(t *testing.T) {
 
 func TestPartnerStore_UpdateDIDDocument(t *testing.T) {
 	db := testDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewPartnerStore(db)
@@ -248,7 +248,7 @@ func TestPartnerStore_UpdateDIDDocument(t *testing.T) {
 
 func TestBootstrapPartners(t *testing.T) {
 	db := testDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewPartnerStore(db)
@@ -314,7 +314,7 @@ func TestBootstrapPartners(t *testing.T) {
 
 func TestResolveViaPartner(t *testing.T) {
 	db := testDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewPartnerStore(db)
@@ -366,7 +366,7 @@ func TestResolveViaPartner(t *testing.T) {
 
 func TestResolveViaPartner_NoPushURL(t *testing.T) {
 	db := testDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewPartnerStore(db)
@@ -399,7 +399,7 @@ func TestResolveViaPartner_NoPushURL(t *testing.T) {
 
 func TestIsTrustedSupplier_EnforcesCapability(t *testing.T) {
 	db := testDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewPartnerStore(db)
@@ -432,7 +432,7 @@ func TestIsTrustedSupplier_EnforcesCapability(t *testing.T) {
 
 func TestResolveViaPartner_EnforcesReceiveCapability(t *testing.T) {
 	db := testDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewPartnerStore(db)

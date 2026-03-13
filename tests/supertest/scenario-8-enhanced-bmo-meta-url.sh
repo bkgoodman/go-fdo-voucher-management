@@ -338,6 +338,7 @@ narrate "and verify that hash verification fails properly."
 # Create a different image file
 WRONG_IMAGE="$ARTIFACT_DIR/wrong_image.bin"
 dd if=/dev/urandom of="$WRONG_IMAGE" bs=1024 count=4 2>/dev/null
+# shellcheck disable=SC2034  # WRONG_HASH documents the hash; actual usage is via -hash-file flag
 WRONG_HASH=$(sha256sum "$WRONG_IMAGE" | awk '{print $1}')
 
 # Create meta-payload with hash of wrong image but URL to correct image

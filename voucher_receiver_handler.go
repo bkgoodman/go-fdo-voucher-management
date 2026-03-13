@@ -94,7 +94,7 @@ func (h *VoucherReceiverHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		h.sendErrorR(w, r, http.StatusBadRequest, "voucher file missing")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if header.Size > maxVoucherSize {
 		slog.Warn("voucher receiver: voucher file too large", "size", header.Size, "source_ip", sourceIP)

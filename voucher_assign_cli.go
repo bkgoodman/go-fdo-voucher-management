@@ -30,7 +30,7 @@ func vouchersAssignCmd() {
 	newOwnerDID := fs.String("new-owner-did", "", "DID URI of the new owner (alternative to -new-owner-key)")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	jsonOutput := fs.Bool("json", false, "Output results as JSON")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	// Validate flags
 	if *serial == "" && *guid == "" {
@@ -57,7 +57,7 @@ func vouchersAssignCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
@@ -282,7 +282,7 @@ func vouchersUnassignCmd() {
 	guid := fs.String("guid", "", "Voucher GUID to unassign (alternative to -serial)")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	jsonOutput := fs.Bool("json", false, "Output results as JSON")
-	fs.Parse(os.Args[3:])
+	_ = fs.Parse(os.Args[3:])
 
 	if *serial == "" && *guid == "" {
 		fmt.Fprintf(os.Stderr, "error: one of -serial or -guid is required\n")
@@ -300,7 +300,7 @@ func vouchersUnassignCmd() {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)

@@ -21,7 +21,7 @@ For high-security deployments, the owner key should live in an HSM, TPM, or clou
 There is **one owner key** that serves all three purposes:
 
 | Purpose | What it does | Source | Status |
-|---------|-------------|--------|--------|
+| --------- | ------------- | -------- | -------- |
 | **Voucher signing** | Signs voucher entries when extending ownership chain (`fdo.ExtendVoucher`) | `loadOrGenerateOwnerKey()` → `signingService.OwnerSigner` | ✅ Persistent |
 | **DID identity** | Published in the DID document at `/.well-known/did.json`; partners use it to verify our identity | `loadOrGenerateOwnerKey()` → `did.NewDocument()` | ✅ Persistent |
 | **FDOKeyAuth Holder signing** | Signs FDOKeyAuth Challenge to prove to Recipients that this server is the legitimate Holder | `setupDIDMinting()` → `setupPullService(ownerKey)` | ✅ Unified |
@@ -34,12 +34,13 @@ All three are the same logical identity — "I am the owner/holder of these vouc
 
 **The DI project's approach.** The application shells out to an external command for each signing operation. The command receives a JSON request (containing the digest to sign) and returns a JSON response (containing the signature).
 
-```
+```text
 Application  ──JSON request──▶  External Command  ──▶  HSM/KMS
              ◀──JSON response──                    ◀──
 ```
 
 **Pros:**
+
 - Maximum flexibility — any HSM, KMS, cloud service, or custom script
 - Language-agnostic — the handler can be a shell script, Python, Go binary, etc.
 - Already proven in the DI project (`external_hsm_signer.go`)
@@ -47,6 +48,7 @@ Application  ──JSON request──▶  External Command  ──▶  HSM/KMS
 - Users can adapt to their existing tooling
 
 **Cons:**
+
 - Process-per-sign overhead (fork+exec for every voucher extension)
 - JSON serialization/deserialization overhead
 - Harder to test (requires external command to exist)
@@ -56,6 +58,7 @@ Application  ──JSON request──▶  External Command  ──▶  HSM/KMS
 **Wire format (from DI project):**
 
 Request (JSON, written to temp file, path passed as `{requestfile}`):
+
 ```json
 {
   "digest": "<base64-encoded-digest>",
@@ -69,6 +72,7 @@ Request (JSON, written to temp file, path passed as `{requestfile}`):
 ```
 
 Response (JSON on stdout):
+
 ```json
 {
   "signature": "<base64-encoded-signature>",
@@ -92,11 +96,13 @@ type ExternalSigner interface {
 ```
 
 **Pros:**
+
 - Native Go performance, no process overhead
 - Type-safe, compile-time checked
 - Can leverage existing Go libraries (PKCS#11, AWS SDK, Azure SDK, etc.)
 
 **Cons:**
+
 - Requires users to write Go code and recompile
 - Go plugins (`plugin` package) are fragile and Linux-only
 - Less accessible to ops teams who prefer scripts
@@ -114,11 +120,13 @@ Ship built-in support for specific, well-known KMS backends:
 Each backend would implement `crypto.Signer` internally.
 
 **Pros:**
+
 - Zero configuration complexity for supported backends
 - No external commands, no serialization overhead
 - Well-tested, official SDKs
 
 **Cons:**
+
 - Adds significant dependencies to the binary
 - Maintenance burden for each backend
 - Still doesn't cover every possible KMS
@@ -134,7 +142,7 @@ Combine Options A and C:
 This gives three tiers of increasing security:
 
 | Tier | Config | Security | Complexity |
-|------|--------|----------|------------|
+| ------ | -------- | ---------- | ------------ |
 | **File import** | `key_management.import_key_file: /path/to/key.pem` | Key on disk (encrypted FS recommended) | Minimal |
 | **External command** | `key_management.mode: external` + `external_command` | Key in any external system | Medium |
 | **PKCS#11** | `key_management.mode: pkcs11` + slot/pin/label config | Key in hardware HSM | Higher |
@@ -176,6 +184,7 @@ Cloud KMS support (AWS/Azure/GCP/Vault) could be added incrementally as separate
    - Public key loaded from `key_management.public_key_file` (the external system holds the private key; we only need the public key for DID document construction and voucher headers)
 
 2. **Config additions:**
+
    ```yaml
    key_management:
      mode: "external"           # new mode (in addition to existing internal/import)
@@ -231,6 +240,6 @@ Add built-in drivers for AWS KMS, Azure Key Vault, GCP Cloud KMS, HashiCorp Vaul
 ## References
 
 - DI project implementation: `external_hsm_signer.go`, `example_hsm_handler.sh`, `example_hsm_handler.py`
-- Go `crypto.Signer` interface: https://pkg.go.dev/crypto#Signer
+- Go `crypto.Signer` interface: <https://pkg.go.dev/crypto#Signer>
 - go-fdo library's HSM guidance: [go-fdo/PRODUCTION_CONSIDERATIONS.md](go-fdo/PRODUCTION_CONSIDERATIONS.md#did-key-minting--software-vs-hardware-keys)
 - `did.NewDocument()`: Constructs a DID document from a public key without generating a new key pair

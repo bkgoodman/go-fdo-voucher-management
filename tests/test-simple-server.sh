@@ -28,7 +28,7 @@ for i in {1..5}; do
     else
         echo "[INFO] Attempt $i: Server not ready yet, waiting..."
         sleep 1
-        if [ $i -eq 5 ]; then
+        if [ "$i" -eq 5 ]; then
             echo "[FAIL] Server is not responding after 5 attempts"
             echo "[INFO] Server logs:"
             cat /tmp/server.log

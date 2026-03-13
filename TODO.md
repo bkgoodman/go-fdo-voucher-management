@@ -4,17 +4,17 @@ Gap analysis comparing `fdo-appnote-voucher-transfer.bs` specification against t
 
 **Spec section numbering:**
 
-| §  | Section |
-|----|---------|
-| 1  | Introduction |
-| 2  | Terminology |
-| 3  | **Voucher Management Overview** (high-level tutorial: problem, enrollment, supply chains, alt keys) |
-| 4  | Use Cases and Requirements |
-| 5  | Transfer Models |
-| 6  | Voucher File Format |
-| 7  | Service Root URLs |
-| 8  | **Push API Specification** (bearer token required, references Auth protocol) |
-| 9  | **Pull API Specification** (clean — overview + API endpoints only, bearer token required, references Auth protocol) |
+| § | Section |
+| ---- | --------- |
+| 1 | Introduction |
+| 2 | Terminology |
+| 3 | **Voucher Management Overview** (high-level tutorial: problem, enrollment, supply chains, alt keys) |
+| 4 | Use Cases and Requirements |
+| 5 | Transfer Models |
+| 6 | Voucher File Format |
+| 7 | Service Root URLs |
+| 8 | **Push API Specification** (bearer token required, references Auth protocol) |
+| 9 | **Pull API Specification** (clean — overview + API endpoints only, bearer token required, references Auth protocol) |
 | 10 | **Owner Key Authorization** (NEW standalone — FDOKeyAuth handshake, bearer token lifecycle, wire format, delegation, continuation security, API gateway compatibility, alternative token sources, implementation notes) |
 | 11 | **Security Framework** (FDOKeyAuth for both push+pull, threat model, DDoS) |
 | 12 | Voucher Sequestering |
@@ -24,7 +24,7 @@ Gap analysis comparing `fdo-appnote-voucher-transfer.bs` specification against t
 | 16 | Implementation Guidelines |
 | 17 | Future Enhancements |
 | 18 | Conclusion |
-| A  | **Appendix A: Optional Security Layers** (JWT, mTLS, business logic, purchase integration) |
+| A | **Appendix A: Optional Security Layers** (JWT, mTLS, business logic, purchase integration) |
 
 **Legend:** ✅ Implemented | ⚠️ Partial / Deviation | ❌ Not Implemented (MUST/SHOULD, security-relevant) | � Not Implemented (MAY, defense-in-depth, nice-to-have) | � Spec-optional (noted for awareness)
 
@@ -406,6 +406,10 @@ A standalone CLI app for OS vendors to create, sign, and publish BMO meta-payloa
 
 ### Other Remaining Items
 
+- [x] **Markdown lint clean** — All `.md` files pass pymarkdownlnt (MD009, MD022, MD024, MD031, MD032, MD034, MD040, MD049, MD058, MD060). Fixed code fence language specifiers, table separator spacing, blank lines around headings/lists/tables/fences, duplicate headings, trailing spaces, bare URLs, emphasis style consistency.
+- [x] **Go lint clean** — `golangci-lint run ./...` reports 0 issues. Fixed errcheck (unchecked `db.Close()`, `rows.Close()`, `fs.Parse()`, `enc.Encode()`), staticcheck (deprecated `ecKey.Curve.IsOnCurve()` → `ecKey.IsOnCurve()`), ineffassign (`signedVoucher` in pipeline), removed unused `fingerprintRawKey` function.
+- [x] **Shellcheck clean** — All `.sh` files pass shellcheck with zero warnings/errors. Fixed SC2155 (declare/assign separately), SC2086 (double-quote variables), SC2162 (`read -r`), SC2164 (`cd || exit`), SC2034 (unused variables), SC2001 (suppress sed prefix false positives). Only SC1091 (info) remains for expected `source` statements.
+- [x] **gofmt clean** — `gofmt -l .` reports no files needing formatting.
 - ❌ **Cryptographic continuation tokens** — needs HMAC key management, token format design (§8.5 SHOULD)
 - 🔲 **`error_code` in error responses** — all errors have `request_id` but still missing `error_code` field
 - 🔲 **`status` filter in pull list query** — parsed but not applied in DB query

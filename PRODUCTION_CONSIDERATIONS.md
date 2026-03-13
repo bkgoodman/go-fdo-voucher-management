@@ -43,6 +43,7 @@ Vouchers are stored as `.fdoov` files on the filesystem under `voucher_files.dir
 ### Database File
 
 The SQLite database file (`voucher_manager.db` by default) contains:
+
 - All transmission records and their state
 - Authentication tokens
 - Partner trust store entries (including cached DID documents and public keys)
@@ -200,7 +201,7 @@ The current architecture is single-instance:
 **For horizontal scaling**, the following changes would be needed:
 
 | Component | Current | Production Alternative |
-|-----------|---------|----------------------|
+| ----------- | --------- | ---------------------- |
 | Database | SQLite (file-local) | PostgreSQL / MySQL (shared) |
 | Session store | In-memory map | Redis / database-backed |
 | Token store | In-memory map | Redis / database-backed |
@@ -255,7 +256,7 @@ The application does not currently expose a health endpoint. For production:
 ### What to Back Up
 
 | Component | Location | Criticality |
-|-----------|----------|-------------|
+| ----------- | ---------- | ------------- |
 | Database | `database.path` (default: `voucher_manager.db`) | **Critical** — all state |
 | Voucher files | `voucher_files.directory` (default: `data/vouchers/`) | **Critical** — source vouchers |
 | Configuration | `config.yaml` | Important — reproducible |
@@ -296,6 +297,7 @@ ENTRYPOINT ["/fdo-voucher-manager", "server", "-config", "/data/config.yaml"]
 ```
 
 **Volume mounts:**
+
 - `/data/config.yaml` — Configuration file
 - `/data/voucher_manager.db` — Database (must be on a persistent volume)
 - `/data/vouchers/` — Voucher file storage (must be on a persistent volume)

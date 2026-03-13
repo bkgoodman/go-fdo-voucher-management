@@ -35,7 +35,7 @@ func runPullCommand() {
 	jsonOutput := fs.Bool("json", false, "Output result as JSON")
 	holderKeyFile := fs.String("holder-key", "", "PEM-encoded Holder public key file (for HolderSignature verification)")
 	listOnly := fs.Bool("list", false, "List vouchers only (do not download)")
-	fs.Parse(os.Args[2:])
+	_ = fs.Parse(os.Args[2:])
 
 	if *holderURL == "" {
 		fmt.Fprintf(os.Stderr, "error: -url is required\n")
@@ -126,7 +126,7 @@ func runPullCommand() {
 			}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
-			enc.Encode(out)
+			_ = enc.Encode(out)
 		} else {
 			fmt.Printf("Pull completed: %d voucher(s) found\n", len(allVouchers))
 			for _, v := range allVouchers {
@@ -172,7 +172,7 @@ func runPullCommand() {
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(out)
+		_ = enc.Encode(out)
 	} else {
 		fmt.Printf("Pull completed: %d listed, %d downloaded to %s\n", len(allVouchers), downloaded, *outputDir)
 		if lastContinuation != "" {

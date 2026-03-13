@@ -58,7 +58,8 @@ test_end_to_end_transmission() {
     local response
     response=$(send_voucher "$test_voucher" "http://localhost:8080/api/v1/vouchers" "" "E2E-SERIAL-001" "E2E-MODEL-001")
     
-    local http_code=$(echo "$response" | tail -n1)
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
     assert_http_status "200" "$http_code" "Voucher accepted by Instance A"
     
     # Step 6: Wait for Instance A to transmit to Instance B

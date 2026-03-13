@@ -17,7 +17,7 @@ bash scenario-1-direct-onboard.sh
 
 ## The Five FDO Applications
 
-```
+```text
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │  Manufacturing   │    │  Voucher Manager │    │   Onboarding    │
 │  Station (DI)    │───▶│  (Reseller/VM)   │───▶│   Service (OBS) │
@@ -70,6 +70,7 @@ OBS creates a delegate certificate with `voucher-claim` permission and uses it f
 **Services:** All five | **Transfer:** Push + Pull (two modes) | **Protocols:** DI, FDOKeyAuth (owner-key + delegate), TO0, TO1, TO2
 
 The most comprehensive scenario. Tests three FDOKeyAuth modes against the same Holder:
+
 - **A:** Owner-key pull (standard)
 - **B:** Delegate-based pull (delegate cert + owner public key only)
 - **C:** Negative isolation (unrelated key → 0 vouchers)
@@ -97,16 +98,19 @@ Uses ports 9801 (FDO) and 18082 (HTTP file server).
 Comprehensive testing of all FDOKeyAuth authentication flows with both positive and negative test cases:
 
 **Push Authentication Tests:**
+
 - Mfg → VM with correct key: SUCCESS
 - Mfg → VM with wrong key: BLOCKED
-- Mfg → OBS with correct key: SUCCESS  
+- Mfg → OBS with correct key: SUCCESS
 - Mfg → OBS with wrong key: BLOCKED
 
 **Pull Authentication Tests:**
+
 - VM → OBS with correct key: SUCCESS
 - VM → OBS with wrong key: BLOCKED (0 vouchers)
 
 **FDOKeyAuth Handshake Tests:**
+
 - Correct owner key: SUCCESS
 - Wrong owner key: BLOCKED
 
@@ -119,7 +123,7 @@ All services use DID-based keying. Tests proper owner-key scoping and isolation 
 Tests token lifecycle management in FDOKeyAuth with short token TTL (10 seconds):
 
 - Token issuance and caching
-- Token expiration handling  
+- Token expiration handling
 - Automatic token refresh
 - Invalid token rejection
 - Per-destination token scoping
@@ -129,7 +133,7 @@ Validates that expired tokens are properly rejected and refreshed automatically.
 ## Test Matrix
 
 | Scenario | DI | Push | Pull | TO0 | TO1 | TO2 | Delegate | DID | FDOKeyAuth |
-|----------|:--:|:----:|:----:|:---:|:---:|:---:|:--------:|:---:|----------|
+| ---------- | :--: | :----: | :----: | :---: | :---: | :---: | :--------: | :---: | ---------- |
 | 1 Direct | ✓ | ✓ | | | | ✓ | | | — |
 | 2 Full RV | ✓ | ✓ | | ✓ | ✓ | ✓ | | | — |
 | 3 Push | ✓ | ✓✓ | | ✓ | ✓ | ✓ | | ✓ | — |
@@ -145,7 +149,7 @@ Validates that expired tokens are properly rejected and refreshed automatically.
 Each scenario uses isolated ports to avoid conflicts:
 
 | Scenario | Mfg | VM | RV | OBS |
-|----------|-----|----|----|-----|
+| ---------- | ----- | ---- | ---- | ----- |
 | 1 | 9101 | — | — | 9102 |
 | 2 | 9201 | — | 9203 | 9202 |
 | 3 | 9301 | 9302 | 9303 | 9304 |
@@ -182,6 +186,7 @@ lsof -i tcp:9101-9604
 ### Key mismatches
 
 If TO2 fails with "invalid owner key", ensure:
+
 1. The OBS owner key was correctly extracted and given to the Mfg station
 2. If using VM as middleman, the VM's signover target matches the OBS key
 3. The voucher's owner key fingerprint matches what the OBS has in its DB
@@ -189,6 +194,7 @@ If TO2 fails with "invalid owner key", ensure:
 ### TO0 not completing
 
 TO0 depends on:
+
 1. RV server being reachable at the address in the voucher's RV entries
 2. The OBS having the correct owner key (or delegate) to sign the TO0 blob
 3. The RV server's auth mode allowing the upload (use "open" for testing)
@@ -198,13 +204,14 @@ Check the OBS log for `TO0 dispatcher` messages.
 ### Pull returns 0 vouchers
 
 FDOKeyAuth is owner-key-scoped. The pulling key's fingerprint must match the `owner_key_fingerprint` stored with the voucher. Verify:
+
 1. The Mfg station signed over to the correct key
 2. The VM's signover pipeline ran (check VM log for "sign-over" or "pipeline")
 3. The pull key matches what the voucher was signed over to
 
 ## FDO Protocol Overview
 
-```
+```text
 MANUFACTURING (DI)           TRANSFER              ONBOARDING
 ┌──────────────────┐   ┌────────────────────┐   ┌──────────────────┐
 │ Device ──DI──▶   │   │ Push: Mfg→OBS      │   │ TO0: OBS──▶RV    │

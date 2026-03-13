@@ -4,7 +4,7 @@ Complete command reference for `fdo-voucher-manager`. For configuration file opt
 
 ## Global Usage
 
-```
+```bash
 fdo-voucher-manager <subcommand> [options]
 ```
 
@@ -13,7 +13,7 @@ All subcommands that interact with the database accept `-config <path>` (default
 ## Subcommands
 
 | Subcommand | Description |
-|---|---|
+| --- | --- |
 | [`server`](#server) | Start the HTTP server |
 | [`vouchers`](#vouchers) | Manage voucher transmission records |
 | [`tokens`](#tokens) | Manage receiver authentication tokens |
@@ -30,16 +30,17 @@ All subcommands that interact with the database accept `-config <path>` (default
 
 Start the HTTP server for receiving, signing, and transmitting vouchers.
 
-```
+```bash
 fdo-voucher-manager server [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-debug` | bool | `false` | Enable debug-level logging |
 
 The server starts all enabled subsystems based on the config file:
+
 - **Voucher receiver** — HTTP endpoint accepting pushed vouchers
 - **Pull service** — FDOKeyAuth + Pull API for authenticated voucher retrieval
 - **DID minting** — Generates and serves a DID document at `.well-known/did.json`
@@ -59,7 +60,7 @@ The server starts all enabled subsystems based on the config file:
 
 Manage voucher transmission records stored in the database.
 
-```
+```bash
 fdo-voucher-manager vouchers <command> [options]
 ```
 
@@ -67,12 +68,12 @@ fdo-voucher-manager vouchers <command> [options]
 
 List voucher transmission records.
 
-```
+```bash
 fdo-voucher-manager vouchers list [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-status` | string | (all) | Filter by status: `pending`, `succeeded`, `failed`, `assigned` |
 | `-guid` | string | (all) | Filter by voucher GUID |
@@ -86,12 +87,12 @@ Output columns: GUID, Serial, Status, Assigned By, Destination, ID.
 
 Show detailed information about a specific voucher transmission record.
 
-```
+```bash
 fdo-voucher-manager vouchers show -guid <guid> [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-guid` | string | **(required)** | Voucher GUID to inspect |
 
@@ -101,12 +102,12 @@ Displays: ID, GUID, Serial, Model, Status, Owner Key Fingerprint, Destination UR
 
 Manually retry transmission of a specific voucher.
 
-```
+```bash
 fdo-voucher-manager vouchers retry -guid <guid> [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-guid` | string | **(required)** | GUID of the voucher to retry |
 
@@ -114,12 +115,12 @@ fdo-voucher-manager vouchers retry -guid <guid> [options]
 
 Assign one or more vouchers to a new owner. This extends the voucher's cryptographic ownership chain to the specified customer key and marks the record as assigned.
 
-```
+```bash
 fdo-voucher-manager vouchers assign [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-serial` | string | `""` | Serial number(s) to assign (comma-separated for batch) |
 | `-guid` | string | `""` | Voucher GUID to assign (alternative to `-serial`) |
@@ -135,12 +136,12 @@ Assignment is **at-most-once**: a second assignment to an already-assigned vouch
 
 Revert one or more voucher assignments, restoring them to their pre-assignment state. This clears the database metadata, removes access grants, and restores the voucher file to its original (pre-extension) state.
 
-```
+```bash
 fdo-voucher-manager vouchers unassign [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-serial` | string | `""` | Serial number(s) to unassign (comma-separated) |
 | `-guid` | string | `""` | Voucher GUID to unassign (alternative to `-serial`) |
@@ -152,12 +153,12 @@ One of `-serial` or `-guid` is required. The voucher must currently be in `assig
 
 List access grants. Access grants track which identities (owner keys, custodians, purchaser tokens) have access to which vouchers.
 
-```
+```bash
 fdo-voucher-manager vouchers grants [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-guid` | string | (all) | Filter by voucher GUID |
 | `-type` | string | (all) | Filter by identity type: `owner_key`, `custodian`, `purchaser_token` |
@@ -169,12 +170,12 @@ Output columns: Voucher GUID, Serial, Identity FP, Type, Access, Granted By.
 
 List custodians and their voucher assignments. Custodians are identities that have directed voucher assignments via the assign API.
 
-```
+```bash
 fdo-voucher-manager vouchers custodians [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-fingerprint` | string | (all) | Show vouchers for a specific custodian fingerprint |
 | `-limit` | int | `50` | Maximum number of results |
@@ -183,7 +184,7 @@ Without `-fingerprint`: lists all custodians with voucher counts and serial numb
 
 With `-fingerprint`: lists all vouchers assigned by that custodian, showing GUID, serial, status, assigned-to fingerprint, and assignment time.
 
-### Examples
+### Voucher Examples
 
 ```bash
 # List all pending vouchers
@@ -239,7 +240,7 @@ With `-fingerprint`: lists all vouchers assigned by that custodian, showing GUID
 
 Manage bearer authentication tokens used by the voucher receiver endpoint. These tokens are stored in the database and checked when `voucher_receiver.require_auth` is `true`.
 
-```
+```bash
 fdo-voucher-manager tokens <command> [options]
 ```
 
@@ -247,12 +248,12 @@ fdo-voucher-manager tokens <command> [options]
 
 Add a new authentication token.
 
-```
+```bash
 fdo-voucher-manager tokens add -token <value> [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-token` | string | **(required)** | Token value |
 | `-description` | string | `""` | Human-readable description |
@@ -262,12 +263,12 @@ fdo-voucher-manager tokens add -token <value> [options]
 
 List all tokens.
 
-```
+```bash
 fdo-voucher-manager tokens list [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 
 Output columns: Token (truncated), Description, Owner Key FP, Created, Expires.
@@ -276,16 +277,16 @@ Output columns: Token (truncated), Description, Owner Key FP, Created, Expires.
 
 Delete a token.
 
-```
+```bash
 fdo-voucher-manager tokens delete -token <value> [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-token` | string | **(required)** | Token value to delete |
 
-### Examples
+### Token Examples
 
 ```bash
 # Add a token valid for 24 hours
@@ -307,7 +308,7 @@ fdo-voucher-manager tokens delete -token <value> [options]
 
 Manage trusted partner identities in the partner trust store. Partners represent other organizations or services in the voucher supply chain. Each partner has capability flags controlling what operations are authorized.
 
-```
+```bash
 fdo-voucher-manager partners <command> [options]
 ```
 
@@ -322,12 +323,12 @@ At least one of `-supply` or `-receive` is required when adding a partner.
 
 Add a trusted partner identity.
 
-```
+```bash
 fdo-voucher-manager partners add -id <name> [-supply] [-receive] [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-id` | string | **(required)** | Human-readable partner identifier (e.g., `acme-mfg`) |
 | `-supply` | bool | `false` | Partner can supply vouchers to us |
@@ -348,12 +349,12 @@ When `-did` is provided without `-key`, the DID is resolved and the public key i
 
 List all trusted partners.
 
-```
+```bash
 fdo-voucher-manager partners list [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-filter` | string | (all) | Filter by capability: `supply` or `receive` |
 | `-json` | bool | `false` | Output as JSON |
@@ -364,12 +365,12 @@ Output columns: ID, Supply, Receive, Enabled, Push URL, DID.
 
 Show detailed information about a partner.
 
-```
+```bash
 fdo-voucher-manager partners show -id <name> [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-id` | string | **(required)** | Partner ID |
 | `-json` | bool | `false` | Output as JSON |
@@ -378,12 +379,12 @@ fdo-voucher-manager partners show -id <name> [options]
 
 Remove a partner from the trust store.
 
-```
+```bash
 fdo-voucher-manager partners remove -id <name> [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-id` | string | **(required)** | Partner ID to remove |
 
@@ -391,15 +392,15 @@ fdo-voucher-manager partners remove -id <name> [options]
 
 Export all partners as JSON to stdout.
 
-```
+```bash
 fdo-voucher-manager partners export [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 
-### Examples
+### Partner Examples
 
 ```bash
 # Add a manufacturer (upstream supplier) by DID — resolves key and URL automatically
@@ -435,7 +436,7 @@ fdo-voucher-manager partners export [options]
 
 Authenticate with a Holder via the FDOKeyAuth protocol, then list and optionally download vouchers. This is the client-side command for the Pull transfer model.
 
-```
+```bash
 fdo-voucher-manager pull [options]
 ```
 
@@ -446,7 +447,7 @@ Two authentication modes are supported:
 **Standard (owner private key):**
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-key` | string | `""` | Path to PEM-encoded owner private key file |
 | `-key-type` | string | `ec384` | Key type to generate if `-key` not provided: `ec256`, `ec384`, `rsa2048` |
 
@@ -455,7 +456,7 @@ If `-key` is omitted, an ephemeral key is generated (useful for testing).
 **Delegate-based (cross-org or intra-org):**
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-owner-pub` | string | `""` | PEM-encoded owner public key file (delegate mode) |
 | `-delegate-key` | string | `""` | PEM-encoded delegate private key file |
 | `-delegate-chain` | string | `""` | PEM-encoded delegate certificate chain file |
@@ -465,7 +466,7 @@ When using delegate mode, either `-owner-pub` or `-key` must identify the owner.
 ### Connection and Filter Flags
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-url` | string | **(required)** | Holder base URL (e.g., `http://localhost:8083`) |
 | `-since` | string | `""` | Only return vouchers created after this time (RFC 3339) |
 | `-until` | string | `""` | Only return vouchers created before this time (RFC 3339) |
@@ -475,13 +476,13 @@ When using delegate mode, either `-owner-pub` or `-key` must identify the owner.
 ### Output Flags
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-output` | string | `""` | Directory to save downloaded `.fdoov` files. If omitted, lists metadata only. |
 | `-list` | bool | `false` | List vouchers only, do not download (even if `-output` is set) |
 | `-json` | bool | `false` | Output as JSON |
 | `-holder-key` | string | `""` | PEM-encoded Holder public key file for verifying the Holder's signature during FDOKeyAuth |
 
-### Examples
+### Pull Examples
 
 ```bash
 # Pull with owner key — list and download all vouchers
@@ -526,14 +527,14 @@ When using delegate mode, either `-owner-pub` or `-key` must identify the owner.
 
 Perform a FDOKeyAuth handshake only, without listing or downloading vouchers. Useful for testing authentication or obtaining a session token for use with other tools.
 
-```
+```bash
 fdo-voucher-manager fdokeyauth [options]
 ```
 
 Accepts the same authentication flags as [`pull`](#pull):
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-url` | string | **(required)** | Holder base URL |
 | `-key` | string | `""` | Owner private key PEM file |
 | `-key-type` | string | `ec384` | Key type for ephemeral key generation |
@@ -545,7 +546,7 @@ Accepts the same authentication flags as [`pull`](#pull):
 
 Output includes: Session Token, Expiration, Owner Key Fingerprint, Voucher Count.
 
-### Examples
+### FDOKeyAuth Examples
 
 ```bash
 # Test authentication with owner key
@@ -565,7 +566,7 @@ Output includes: Session Token, Expiration, Owner Key Fingerprint, Voucher Count
 
 Generate test vouchers for development and testing.
 
-```
+```bash
 fdo-voucher-manager generate <command> [options]
 ```
 
@@ -573,23 +574,24 @@ fdo-voucher-manager generate <command> [options]
 
 Create a minimal test voucher in PEM format.
 
-```
+```bash
 fdo-voucher-manager generate voucher [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-serial` | string | `TEST-SERIAL` | Device serial number |
 | `-model` | string | `TEST-MODEL` | Device model number |
 | `-output` | string | (stdout) | Output file path. If omitted, the PEM voucher is printed to stdout. |
 | `-owner-key` | string | `""` | Path to PEM-encoded owner public key file. If provided, the voucher is bound to this key. |
 
 The generated voucher uses minimal valid CBOR structure with:
+
 - Random 16-byte GUID
 - `-----BEGIN OWNERSHIP VOUCHER-----` / `-----END OWNERSHIP VOUCHER-----` PEM wrapping
 - Zero HMAC and empty entry chain (test-only, not valid for production)
 
-### Examples
+### Generate Examples
 
 ```bash
 # Generate a test voucher to stdout
@@ -610,7 +612,7 @@ The generated voucher uses minimal valid CBOR structure with:
 
 Inspect and export cryptographic key information.
 
-```
+```bash
 fdo-voucher-manager keys <command> [options]
 ```
 
@@ -618,12 +620,12 @@ fdo-voucher-manager keys <command> [options]
 
 Display key management configuration.
 
-```
+```bash
 fdo-voucher-manager keys show [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 
 Displays: Key Type, First Time Init flag, Database Path.
@@ -632,18 +634,18 @@ Displays: Key Type, First Time Init flag, Database Path.
 
 Export the owner public key to a PEM file.
 
-```
+```bash
 fdo-voucher-manager keys export -output <path> [options]
 ```
 
 | Flag | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-output` | string | **(required)** | Output file path for the PEM-encoded public key |
 
 > **Note:** This command currently writes a placeholder key. See TODO.md for the tracked issue to export the real owner key from the database.
 
-### Examples
+### Key Examples
 
 ```bash
 # Show key configuration
@@ -659,7 +661,7 @@ fdo-voucher-manager keys export -output <path> [options]
 
 Show the built-in usage summary.
 
-```
+```bash
 fdo-voucher-manager help
 ```
 

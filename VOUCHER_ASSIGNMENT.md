@@ -9,7 +9,7 @@ This is the "bypass" model: the Custodian never appears in the voucher chain. Th
 ## Definitions
 
 | Term | Meaning | Has FDO Key? | In Voucher Chain? |
-|------|---------|:------------:|:-----------------:|
+| ------ | --------- | :------------: | :-----------------: |
 | **Key Holder** | Entity whose private key corresponds to the public key at the tip of the voucher's ownership chain. Can cryptographically extend the chain. | Yes | Yes |
 | **Custodian** | Entity that owns a device in business terms (purchased it, is responsible for it). Authenticated via API token. May or may not have an FDO Owner Key. | Maybe | Not necessarily |
 | **Customer** | The downstream party the Custodian designates to receive cryptographic ownership. | Yes (must) | Yes (after extension) |
@@ -52,7 +52,7 @@ The FDO spec uses "sign over" / "sign-over" for the cryptographic act and "vouch
 
 ### Scenario A: Reseller with FDO Key (Standard Transfer)
 
-```
+```text
 Manufacturer(K_A) --sign-over--> Reseller(K_B) --sign-over--> Customer(K_C)
 Voucher chain: [K_A→K_B, K_B→K_C]
 ```
@@ -61,7 +61,7 @@ No assignment needed. Both parties hold keys and extend the chain themselves. Th
 
 ### Scenario B: Reseller WITHOUT FDO Key (Assignment)
 
-```
+```text
 Manufacturer(K_A) holds voucher
 Reseller(no key) is Custodian — purchased device, has API token
 Reseller tells Manufacturer: "assign to Customer(K_C)"
@@ -73,7 +73,7 @@ The Reseller is the Custodian. The Manufacturer is the Key Holder. The Customer 
 
 ### Scenario C: Multi-Hop Custodianship (Chained Assignment)
 
-```
+```text
 Manufacturer(K_A) holds voucher
 Manufacturer sells device to Distributor (no key) — Distributor becomes Custodian
 Distributor sells to Reseller (no key) — Reseller becomes Custodian
@@ -86,7 +86,7 @@ Custodianship transferred through the business chain. Only the final Custodian d
 
 ### Scenario D: Assignment After Prior Transfer (Multi-Hop with Keys)
 
-```
+```yaml
 Manufacturer(K_A) --sign-over--> Reseller_1(K_B)   [chain: K_A→K_B]
 Reseller_1 sells to Reseller_2 (no key) — Reseller_2 becomes Custodian
 Reseller_2 tells Reseller_1: "assign to Customer(K_D)"
@@ -97,7 +97,7 @@ The voucher already has entries (K_A→K_B). That's fine. The at-most-once guard
 
 ### Scenario E: Rejected Assignment
 
-```
+```yaml
 Same as B. After Manufacturer extends K_A → K_C:
 Reseller says: "actually, assign to Customer_2(K_D)" → REJECTED
 ```
@@ -128,8 +128,9 @@ All assignment business logic lives here:
 
 ### The Guard Logic
 
-```
+```text
 Can this assignment proceed?
+
   1. Is the caller authenticated?                    → 401 if not
   2. Is the caller the Custodian for this voucher?   → 403 if not
   3. Has this voucher already been assigned?          → error: "already_assigned"
@@ -155,7 +156,7 @@ What matters is that the auth token → Custodian identity mapping is stable, so
 ### Relationship to Existing Concepts
 
 | Existing Concept | Relationship to Custodian |
-|-----------------|--------------------------|
+| ----------------- | -------------------------- |
 | **Partner** | A Partner with `can_receive_vouchers` *may* also be a Custodian for vouchers assigned to them. But Partners are about DID-based trust for voucher *supply*. Custodians are about business ownership for voucher *assignment*. Distinct concepts. |
 | **CallerIdentity** | Already captures auth method, fingerprint, and label. The `CanAssign()` check (renamed from `CanAssign()`) uses this. No structural change needed — just rename. |
 | **Access Grants** | After assignment, the Custodian and Customer both get grants. The grant's `IdentityType` changes from `"custodian"` to `"custodian"`. |
@@ -164,8 +165,9 @@ What matters is that the auth token → Custodian identity mapping is stable, so
 ## Naming Changes (from "assign" to "assign")
 
 ### API
+
 | Current | New |
-|---------|-----|
+| --------- | ----- |
 | `POST {root}/assign` | `POST {root}/assign` |
 | `AssignRequest` | `AssignRequest` |
 | `AssignResponse` | `AssignResponse` |
@@ -173,8 +175,9 @@ What matters is that the auth token → Custodian identity mapping is stable, so
 | Error code: `"already_assigned"` | `"already_assigned"` |
 
 ### DB Schema
+
 | Current Column | New Column |
-|---------------|------------|
+| --------------- | ------------ |
 | `assigned_at` | `assigned_at` |
 | `assigned_to_fingerprint` | `assigned_to_fingerprint` |
 | `assigned_to_did` | `assigned_to_did` |
@@ -183,8 +186,9 @@ What matters is that the auth token → Custodian identity mapping is stable, so
 | `original_owner_fingerprint` | (keep — still meaningful) |
 
 ### Code
+
 | Current | New |
-|---------|-----|
+| --------- | ----- |
 | `VoucherAssignHandler` | `VoucherAssignHandler` |
 | `voucher_assign_handler.go` | `voucher_assign_handler.go` |
 | `CanAssign()` | `CanAssign()` |
@@ -195,8 +199,9 @@ What matters is that the auth token → Custodian identity mapping is stable, so
 | Access grant type: `"custodian"` | `"custodian"` |
 
 ### Status Endpoint
+
 | Current | New |
-|---------|-----|
+| --------- | ----- |
 | Status: `"assigned"` | `"assigned"` |
 | `assigned_at` | `assigned_at` |
 | `assigned_to_fingerprint` | `assigned_to_fingerprint` |
@@ -206,21 +211,25 @@ What matters is that the auth token → Custodian identity mapping is stable, so
 ## Implementation Plan
 
 ### Phase 1: Library Cleanup
+
 - Remove `AssignVoucher()` from `go-fdo/voucher.go`
 - Remove `go-fdo/voucher_assign_test.go`
 - Handler calls `fdo.ExtendVoucher()` directly
 
 ### Phase 2: Rename assign → assign (Application Layer)
+
 - Rename files, types, functions, DB columns, API endpoint, error codes, status values
 - Update tests, integration script, TODO.md
 - All mechanical — no logic changes
 
 ### Phase 3: Fix the Guard Logic
+
 - Remove the library-level `len(Entries) > 0` check (gone with Phase 1)
 - Ensure the DB-level at-most-once check (`status == assigned`) is the sole guard
 - Verify the handler calls `ExtendVoucher` without any chain-depth precondition
 
 ### Phase 4: Custodian Tracking (Future)
+
 - Add `custodian_fingerprint` column to transmission records (separate from `owner_key_fingerprint`)
 - Track custodianship transfer as a first-class operation
 - Link auth tokens to custodian identity more explicitly

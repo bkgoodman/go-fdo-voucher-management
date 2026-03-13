@@ -116,6 +116,7 @@ fi
 
 narrate "Listing delegates to confirm creation:"
 DELEGATE_LIST=$("$BIN_OBS" -config "$OBS_CONFIG" -list-delegates 2>&1 || echo "(no delegates)")
+# shellcheck disable=SC2001
 echo "$DELEGATE_LIST" | sed 's/^/    /'
 show_item "Delegate 'site-delegate' should appear with voucher-claim permission"
 
