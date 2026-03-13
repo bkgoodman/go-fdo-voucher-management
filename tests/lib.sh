@@ -116,6 +116,51 @@ assert_http_status() {
     fi
 }
 
+assert_count_gt() {
+    local actual="$1"
+    local threshold="$2"
+    local message="${3:-Count should be > $threshold}"
+    ((TESTS_RUN++))
+    if [ "$actual" -gt "$threshold" ] 2>/dev/null; then
+        log_success "$message (got $actual)"
+        ((TESTS_PASSED++))
+        return 0
+    else
+        log_error "$message (got $actual, expected > $threshold)"
+        ((TESTS_FAILED++))
+        return 1
+    fi
+}
+
+# Wait for a TCP port to become available
+wait_for_port() {
+    local port="$1"
+    local timeout="${2:-30}"
+    local label="${3:-server}"
+    local elapsed=0
+    while [ "$elapsed" -lt "$timeout" ]; do
+        if netstat -tlnp 2>/dev/null | grep -q ":${port} "; then
+            return 0
+        fi
+        sleep 0.5
+        elapsed=$((elapsed + 1))
+    done
+    log_error "$label did not start on port $port within ${timeout}s"
+    return 1
+}
+
+# Kill any process listening on a given port
+kill_port() {
+    local port="$1"
+    local pids
+    pids=$(lsof -ti "tcp:$port" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo "$pids" | xargs kill 2>/dev/null || true
+        sleep 0.5
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+    fi
+}
+
 # Start server in background
 start_server() {
     local config="$1"
@@ -324,7 +369,8 @@ check_binary() {
 }
 
 export -f log_info log_success log_error log_warn
-export -f assert_equals assert_not_empty assert_file_exists assert_http_status
+export -f assert_equals assert_not_empty assert_file_exists assert_http_status assert_count_gt
+export -f wait_for_port kill_port
 export -f start_server stop_server send_voucher query_transmission list_transmissions
 export -f export_owner_key add_token print_summary run_test wait_for check_binary
 export -f init_test_env cleanup_test_env

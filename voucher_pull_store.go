@@ -50,9 +50,10 @@ func (s *PullVoucherStore) Load(_ context.Context, guid string) (*transfer.Vouch
 }
 
 // GetVoucher retrieves a voucher by GUID, scoped to the given owner key.
-// If ownerKeyFingerprint is non-nil, the voucher's DB record must match.
+// If ownerKeyFingerprint is non-nil, the voucher is returned if the caller
+// either owns it (owner_key_fingerprint match) or has an access grant.
 func (s *PullVoucherStore) GetVoucher(ctx context.Context, ownerKeyFingerprint []byte, guid string) (*transfer.VoucherData, error) {
-	// Verify ownership via DB record if fingerprint is provided
+	// Verify access via DB record if fingerprint is provided
 	if ownerKeyFingerprint != nil {
 		fpHex := hex.EncodeToString(ownerKeyFingerprint)
 		rec, err := s.transmitStore.FetchLatestByGUID(ctx, guid)
@@ -60,11 +61,14 @@ func (s *PullVoucherStore) GetVoucher(ctx context.Context, ownerKeyFingerprint [
 			return nil, fmt.Errorf("voucher not found: %s", guid)
 		}
 		if rec.OwnerKeyFingerprint != fpHex {
-			slog.Warn("pull store: owner key mismatch for voucher",
-				"guid", guid,
-				"expected", fpHex,
-				"actual", rec.OwnerKeyFingerprint)
-			return nil, fmt.Errorf("voucher not found: %s", guid)
+			// Direct ownership doesn't match — check access grants
+			hasAccess, accessErr := s.transmitStore.HasAccessByGUID(ctx, guid, fpHex)
+			if accessErr != nil || !hasAccess {
+				slog.Warn("pull store: no access for voucher",
+					"guid", guid,
+					"fingerprint", fpHex)
+				return nil, fmt.Errorf("voucher not found: %s", guid)
+			}
 		}
 	}
 
@@ -88,9 +92,9 @@ func (s *PullVoucherStore) List(ctx context.Context, ownerKeyFingerprint []byte,
 	var records []VoucherTransmissionRecord
 	var err error
 	if ownerKeyFingerprint != nil {
-		// Scope to the authenticated owner's vouchers only
+		// Scope to vouchers the caller owns OR has an access grant for
 		fpHex := hex.EncodeToString(ownerKeyFingerprint)
-		records, err = s.transmitStore.ListByOwner(ctx, fpHex, queryLimit+1)
+		records, err = s.transmitStore.ListByAccessGrant(ctx, fpHex, queryLimit+1)
 	} else {
 		records, err = s.transmitStore.ListTransmissions(ctx, "", "", queryLimit+1)
 	}

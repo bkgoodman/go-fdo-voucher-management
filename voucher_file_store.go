@@ -74,3 +74,50 @@ func (s *VoucherFileStore) SaveVoucher(ov *fdo.Voucher) (string, error) {
 
 	return path, nil
 }
+
+// BackupVoucher creates a pre-assignment backup of the voucher file so it can
+// be restored if the assignment is later reverted (unassign). The backup is
+// stored alongside the original with a ".preassign" suffix.
+func (s *VoucherFileStore) BackupVoucher(guid string) error {
+	src := s.FilePathForGUID(guid)
+	if src == "" {
+		return fmt.Errorf("unable to derive voucher path for guid %s", guid)
+	}
+
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("failed to read voucher for backup: %w", err)
+	}
+
+	dst := src + ".preassign"
+	if err := os.WriteFile(dst, data, 0o644); err != nil {
+		return fmt.Errorf("failed to write voucher backup: %w", err)
+	}
+
+	return nil
+}
+
+// RestoreVoucher replaces the voucher file with its pre-assignment backup,
+// effectively reverting the cryptographic extension that occurred during
+// assignment. The backup file is removed after a successful restore.
+func (s *VoucherFileStore) RestoreVoucher(guid string) error {
+	path := s.FilePathForGUID(guid)
+	if path == "" {
+		return fmt.Errorf("unable to derive voucher path for guid %s", guid)
+	}
+
+	backup := path + ".preassign"
+	data, err := os.ReadFile(backup)
+	if err != nil {
+		return fmt.Errorf("no pre-assignment backup found for guid %s: %w", guid, err)
+	}
+
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("failed to restore voucher from backup: %w", err)
+	}
+
+	// Clean up the backup (best-effort; non-fatal if removal fails)
+	_ = os.Remove(backup)
+
+	return nil
+}

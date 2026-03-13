@@ -64,10 +64,14 @@ Gap analysis comparing `fdo-appnote-voucher-transfer.bs` specification against t
 
 Spec defines a RECOMMENDED status query endpoint for diagnosing missing-voucher scenarios (e.g., a device arrives but has no voucher — was it never sent, lost, or failed?). The `{identifier}` can be either a voucher GUID or device serial number.
 
-- 🔲 **Not implemented.** The transmission store has the data, but no HTTP handler exposes it.
-- 🔲 **GUID lookup**: Not implemented. DB has `voucher_id` (GUID) column, so this is straightforward.
-- 🔲 **Serial number lookup**: Not implemented. DB has serial number in transmission records.
-- 📋 Spec says RECOMMENDED, not REQUIRED. Implementations that don't support it SHOULD return `501 Not Implemented`.
+- ✅ **Implemented** (`voucher_status_handler.go`). HTTP handler serves `GET {root}/status/{identifier}`.
+- ✅ **GUID lookup**: Auto-detects GUID identifiers (hex with optional hyphens), strips hyphens for DB lookup.
+- ✅ **Serial number lookup**: Falls back to serial number. Explicit `?type=serial` or `?type=guid` query parameter for disambiguation.
+- ✅ **Status mapping**: Internal DB statuses mapped to spec values: `pending` → `held`, `succeeded` → `pushed`, `failed`/`failed_permanent` → `failed`, `assigned` → `assigned`.
+- ✅ **Required response fields**: `voucher_id`, `serial`, `status` always present.
+- ✅ **Optional response fields**: `owner_key_fingerprint`, `created_at`, `pushed_at`, `pushed_to`, `push_attempts`, `last_push_error`, `assigned_at`, `assigned_to_fingerprint`, `assigned_to_did`, `assigned_by_fingerprint`, `error_message` — all omitted when empty/zero.
+- ✅ **Access scoping**: Caller must have access via `owner_key_fingerprint` match or `voucher_access_grants` table.
+- ✅ **Auth**: Bearer token validated via unified `validateToken` callback (global token + DB tokens + FDOKeyAuth tokens).
 
 ## 5. Pull API — GET {root} (Spec §8.1)
 
@@ -307,7 +311,22 @@ These are defense-in-depth layers (§12.7), optional spec features, or future en
 - [ ] Add JWT token support (scoped claims, quotas) — defense-in-depth (§10)
 - [ ] Add mTLS authentication support — defense-in-depth (§10)
 - [ ] Implement rate limiting with `429` responses — defense-in-depth, typically handled by API gateway
-- [ ] Implement `GET {root}/status/{identifier}` endpoint (§7.2, RECOMMENDED)
+- [x] Implement `GET {root}/status/{identifier}` endpoint (§7.2, RECOMMENDED) — `voucher_status_handler.go`
+- [x] Implement `POST {root}/assign` endpoint — `voucher_assign_handler.go` (batch serial-based, DID/key new owner, per-voucher results, at-most-once)
+- [x] Multi-party voucher access grants — `voucher_access_grants` table, `InsertAccessGrant`/`HasAccess`/`ListByAccessGrant`
+- [x] Alternative token sources — `CallerIdentity` abstraction, `ValidateTokenToIdentity()`, unified `validateToken` callback
+- [x] Library `AssignVoucher()` — first-class function in go-fdo with not-already-extended precondition
+- [x] Visibility: `vouchers show` displays assignment fields (assigned_at, assigned_to_*, assigned_by_*, owner_key_fingerprint)
+- [x] Visibility: `vouchers list` supports `-owner` and `-serial` filters
+- [x] Visibility: `tokens list` shows owner key fingerprint column
+- [x] Visibility: `vouchers grants` CLI command — list access grants with `-guid` and `-type` filters
+- [x] Visibility: `vouchers custodians` CLI command — list custodians with voucher counts, drill into specific custodian
+- [x] Visibility: `GET {root}/list` HTTP endpoint — authenticated voucher listing scoped to caller's access
+- [x] CLI: `vouchers assign` command — assign vouchers from command line with `-serial`, `-guid`, `-new-owner-key`, `-new-owner-did` flags
+- [x] CLI: `vouchers unassign` command — revert assignment, restore voucher file to pre-extension state, clear access grants
+- [x] Voucher file backup/restore on assign/unassign — pre-assignment backup saved automatically; unassign restores original voucher so re-assignment works correctly
+- [x] Standalone visibility walkthrough test (`tests/test-visibility-walkthrough.sh`) — port of supertest scenario 12, requires only the voucher manager binary. 54 assertions, 15 phases. Registered in `tests/run-all-tests.sh` as Category 7.
+- [x] Walkthrough command echo — `show_cmd` helper displays every CLI and curl command in yellow `$ ...` tutorial style so users can see exactly what's being run. Covers all 15 phases (~40 commands).
 - [ ] Implement voucher sequestering / quarantine workflow (§11)
 - [ ] Implement long-polling endpoint `GET {root}/subscribe` (§8.3)
 - [ ] Implement SSE stream endpoint `GET {root}/stream` (§8.4)
@@ -429,12 +448,16 @@ Located in `tests/supertest/`. Exercises all 5 FDO apps end-to-end.
 - [x] **Scenario 8 Enhanced**: BMO Meta-URL with go-fdo-meta-tool integration (full positive/negative testing including hash verification). Tests the new standalone meta tool creates compatible payloads.
 - [x] **Scenario 9**: Comprehensive FDOKeyAuth (push positive + pull positive/negative + handshake positive/negative). Tests FDOKeyAuth push from Mfg→VM, pull with owner-key scoping, and standalone handshake validation.
 - [x] **Scenario 10**: FDOKeyAuth Token Lifecycle (issuance, expiration with 10s TTL, rejection, re-auth, fabricated token rejection). 9 tests covering full token lifecycle.
+- [x] **Scenario 11**: Status + Assign API (status by GUID, status by serial, 404 not found, 401 unauth, assign with new owner key, verify assigned status, double-assign rejected). Integration test for voucher_status_handler.go and voucher_assign_handler.go. Registered in `run-all-supertests.sh`.
+- [x] **Scenario 12**: Visibility & Inspection Walkthrough (54 tests). Guided tutorial demonstrating all CLI visibility commands, partner management, assignment lifecycle, and HTTP inspection APIs end-to-end: `tokens list`, `partners add/list/show/export/remove`, `vouchers list` (filters), `vouchers show`, `vouchers assign` (CLI + HTTP), `vouchers unassign` (with voucher file restore), `vouchers grants`, `vouchers custodians`, `GET /list` (admin vs scoped), double-assign rejection, unauthenticated access rejection. Registered in `run-all-supertests.sh`.
 - [ ] **FDO v101 variant**: Add client-side FDO version 101 test variant
 
 ### Known Issues
 
 - [x] **FDOKeyAuth fingerprint consistency**: Fixed in `go-fdo/did/document.go` — `FingerprintProtocolKey` now normalizes via `crypto.PublicKey` before hashing, making fingerprints encoding-agnostic. Spec updated (§9.8). Appnote: `go-fdo/APPNOTE-FINGERPRINT-NORMALIZATION.md`.
 - [ ] **Scenario 6 sub-tests B/C**: Delegate-based pull and owner-scoped isolation tests are non-critical (warn-only). Delegate pull requires OBS delegate CLI integration with VM's owner key.
+- [x] **Global token admin bypass**: Fixed assign, status, and list handlers to let the global config token bypass per-voucher ownership checks. Previously the global token's fingerprint (hash of "global") never matched any voucher's `owner_key_fingerprint`, making it impossible to assign or query any voucher via the API.
+- [x] **Test voucher generator**: Fixed `GenerateTestVoucherWithOwner()` to produce real EC P-256 manufacturer keys and device certificate chains. Previously generated vouchers with empty/invalid key bodies and nil CertChain, causing parse failures in the receiver and panics in `ExtendVoucher`.
 
 ### Blocked on library additions
 

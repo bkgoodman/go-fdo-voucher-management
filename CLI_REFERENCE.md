@@ -74,11 +74,13 @@ fdo-voucher-manager vouchers list [options]
 | Flag | Type | Default | Description |
 |---|---|---|---|
 | `-config` | string | `config.yaml` | Path to configuration file |
-| `-status` | string | (all) | Filter by status: `pending`, `succeeded`, `failed`, `no_destination` |
+| `-status` | string | (all) | Filter by status: `pending`, `succeeded`, `failed`, `assigned` |
 | `-guid` | string | (all) | Filter by voucher GUID |
+| `-owner` | string | (all) | Filter by owner key fingerprint |
+| `-serial` | string | (all) | Filter by serial number |
 | `-limit` | int | `50` | Maximum number of results |
 
-Output columns: GUID, Status, Destination, Attempts, ID.
+Output columns: GUID, Serial, Status, Assigned By, Destination, ID.
 
 ### vouchers show
 
@@ -93,7 +95,7 @@ fdo-voucher-manager vouchers show -guid <guid> [options]
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-guid` | string | **(required)** | Voucher GUID to inspect |
 
-Displays: ID, GUID, Serial, Model, Status, Destination URL, Destination Source, Attempts, Last Error, File Path, Created/Updated timestamps, Last Attempt time, Delivered time.
+Displays: ID, GUID, Serial, Model, Status, Owner Key Fingerprint, Destination URL, Destination Source, Attempts, Last Error, File Path, Created/Updated timestamps, Last Attempt time, Delivered time, Assigned At, Assigned To (fingerprint), Assigned To DID, Assigned By (fingerprint).
 
 ### vouchers retry
 
@@ -108,17 +110,127 @@ fdo-voucher-manager vouchers retry -guid <guid> [options]
 | `-config` | string | `config.yaml` | Path to configuration file |
 | `-guid` | string | **(required)** | GUID of the voucher to retry |
 
+### vouchers assign
+
+Assign one or more vouchers to a new owner. This extends the voucher's cryptographic ownership chain to the specified customer key and marks the record as assigned.
+
+```
+fdo-voucher-manager vouchers assign [options]
+```
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-config` | string | `config.yaml` | Path to configuration file |
+| `-serial` | string | `""` | Serial number(s) to assign (comma-separated for batch) |
+| `-guid` | string | `""` | Voucher GUID to assign (alternative to `-serial`) |
+| `-new-owner-key` | string | `""` | PEM file with the new owner's public key |
+| `-new-owner-did` | string | `""` | DID URI of the new owner (resolved automatically) |
+| `-json` | bool | `false` | Output results as JSON |
+
+One of `-serial` or `-guid` is required. One of `-new-owner-key` or `-new-owner-did` is required (mutually exclusive).
+
+Assignment is **at-most-once**: a second assignment to an already-assigned voucher is rejected. A pre-assignment backup of the voucher file is saved automatically so that `unassign` can fully revert the operation.
+
+### vouchers unassign
+
+Revert one or more voucher assignments, restoring them to their pre-assignment state. This clears the database metadata, removes access grants, and restores the voucher file to its original (pre-extension) state.
+
+```
+fdo-voucher-manager vouchers unassign [options]
+```
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-config` | string | `config.yaml` | Path to configuration file |
+| `-serial` | string | `""` | Serial number(s) to unassign (comma-separated) |
+| `-guid` | string | `""` | Voucher GUID to unassign (alternative to `-serial`) |
+| `-json` | bool | `false` | Output results as JSON |
+
+One of `-serial` or `-guid` is required. The voucher must currently be in `assigned` status.
+
+### vouchers grants
+
+List access grants. Access grants track which identities (owner keys, custodians, purchaser tokens) have access to which vouchers.
+
+```
+fdo-voucher-manager vouchers grants [options]
+```
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-config` | string | `config.yaml` | Path to configuration file |
+| `-guid` | string | (all) | Filter by voucher GUID |
+| `-type` | string | (all) | Filter by identity type: `owner_key`, `custodian`, `purchaser_token` |
+| `-limit` | int | `100` | Maximum number of results |
+
+Output columns: Voucher GUID, Serial, Identity FP, Type, Access, Granted By.
+
+### vouchers custodians
+
+List custodians and their voucher assignments. Custodians are identities that have directed voucher assignments via the assign API.
+
+```
+fdo-voucher-manager vouchers custodians [options]
+```
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-config` | string | `config.yaml` | Path to configuration file |
+| `-fingerprint` | string | (all) | Show vouchers for a specific custodian fingerprint |
+| `-limit` | int | `50` | Maximum number of results |
+
+Without `-fingerprint`: lists all custodians with voucher counts and serial numbers.
+
+With `-fingerprint`: lists all vouchers assigned by that custodian, showing GUID, serial, status, assigned-to fingerprint, and assignment time.
+
 ### Examples
 
 ```bash
 # List all pending vouchers
 ./fdo-voucher-manager vouchers list -status pending
 
-# Show details for a specific voucher
+# List vouchers for a specific owner
+./fdo-voucher-manager vouchers list -owner abc123def456...
+
+# List vouchers by serial number
+./fdo-voucher-manager vouchers list -serial SN-12345
+
+# Show details for a specific voucher (includes assignment info)
 ./fdo-voucher-manager vouchers show -guid 550e8400-e29b-41d4-a716-446655440000
 
 # Manually retry a failed transmission
 ./fdo-voucher-manager vouchers retry -guid 550e8400-e29b-41d4-a716-446655440000
+
+# List all access grants
+./fdo-voucher-manager vouchers grants
+
+# List only custodian grants
+./fdo-voucher-manager vouchers grants -type custodian
+
+# List grants for a specific voucher
+./fdo-voucher-manager vouchers grants -guid 550e8400-e29b-41d4-a716-446655440000
+
+# List all custodians with voucher counts
+./fdo-voucher-manager vouchers custodians
+
+# Show vouchers assigned by a specific custodian
+./fdo-voucher-manager vouchers custodians -fingerprint abc123def456...
+
+# Assign a voucher to a customer's public key
+./fdo-voucher-manager vouchers assign -serial SN-12345 -new-owner-key customer-pub.pem
+
+# Assign using a DID URI
+./fdo-voucher-manager vouchers assign -serial SN-12345 -new-owner-did did:web:customer.example.com
+
+# Batch assign
+./fdo-voucher-manager vouchers assign -serial "SN-001,SN-002,SN-003" -new-owner-key customer-pub.pem
+
+# Revert an assignment
+./fdo-voucher-manager vouchers unassign -serial SN-12345
+
+# Assign by GUID instead of serial
+./fdo-voucher-manager vouchers assign -guid 550e8400-e29b-41d4-a716-446655440000 \
+    -new-owner-key customer-pub.pem
 ```
 
 ---
@@ -158,7 +270,7 @@ fdo-voucher-manager tokens list [options]
 |---|---|---|---|
 | `-config` | string | `config.yaml` | Path to configuration file |
 
-Output columns: Token (truncated), Description, Created, Expires.
+Output columns: Token (truncated), Description, Owner Key FP, Created, Expires.
 
 ### tokens delete
 

@@ -64,6 +64,14 @@ main() {
         ((failed++))
     fi
     
+    log_info "Running Category 7: Visibility Walkthrough"
+    if bash "$SCRIPT_DIR/test-visibility-walkthrough.sh"; then
+        log_success "Category 7 passed"
+    else
+        log_error "Category 7 failed"
+        ((failed++))
+    fi
+    
     cleanup_test_env
     
     echo ""

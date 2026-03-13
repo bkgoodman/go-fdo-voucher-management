@@ -5,7 +5,9 @@ package main
 
 import (
 	"crypto"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -100,4 +102,12 @@ func LoadPrivateKeyFromFile(filename string) (crypto.Signer, error) {
 	}
 
 	return LoadPrivateKeyFromPEM(pemData)
+}
+
+// FingerprintStringHex returns the hex-encoded SHA-256 hash of a string.
+// This is used to derive a consistent fingerprint for non-key-based identities
+// (e.g., bearer token descriptions).
+func FingerprintStringHex(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:])
 }

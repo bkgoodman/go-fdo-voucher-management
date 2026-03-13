@@ -4,14 +4,23 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/big"
 	"os"
+	"time"
 
 	fdo "github.com/fido-device-onboard/go-fdo"
 	"github.com/fido-device-onboard/go-fdo/cbor"
+	"github.com/fido-device-onboard/go-fdo/protocol"
 )
 
 // GenerateTestVoucher creates a minimal valid CBOR-encoded test voucher
@@ -25,10 +34,6 @@ func GenerateTestVoucher(serial, model string) (string, error) {
 // ownerKeyFile should be a PEM-encoded public key file
 // If empty, generates a random key
 func GenerateTestVoucherWithOwner(serial, model, ownerKeyFile string) (string, error) {
-	// Create a minimal voucher structure:
-	// [version, header_bstr, hmac, cert_chain, entries]
-	// For a test voucher, we use minimal valid values
-
 	// Generate random GUID (16 bytes)
 	guid := make([]byte, 16)
 	if _, err := rand.Read(guid); err != nil {
@@ -38,10 +43,23 @@ func GenerateTestVoucherWithOwner(serial, model, ownerKeyFile string) (string, e
 	// Create device info string
 	deviceInfo := fmt.Sprintf("serial=%s,model=%s", serial, model)
 
-	// Determine owner public key
-	var ownerKeyBytes []byte
+	// Generate the manufacturer key — a real EC P-256 key whose public half
+	// goes into the voucher header so the receiver can parse and fingerprint it.
+	mfgPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate manufacturer key: %w", err)
+	}
+
+	// Build a protocol.PublicKey for the manufacturer key (X509 encoding).
+	mfgPubKey, err := protocol.NewPublicKey(protocol.Secp256r1KeyType, &mfgPriv.PublicKey, false)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode manufacturer key: %w", err)
+	}
+
+	// If an owner key file was provided, load its PEM-encoded public key.
+	// Otherwise the manufacturer key doubles as the owner key (no entries).
+	pubKey := mfgPubKey
 	if ownerKeyFile != "" {
-		// Read owner key from file
 		keyData, err := os.ReadFile(ownerKeyFile)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
@@ -49,22 +67,67 @@ func GenerateTestVoucherWithOwner(serial, model, ownerKeyFile string) (string, e
 			}
 			return "", fmt.Errorf("failed to read owner key file: %w", err)
 		}
-		ownerKeyBytes = keyData
-	} else {
-		// Generate random key placeholder
-		ownerKeyBytes = make([]byte, 0)
+		block, _ := pem.Decode(keyData)
+		if block == nil {
+			return "", fmt.Errorf("owner key file contains no PEM block")
+		}
+		parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse owner public key: %w", err)
+		}
+		keyType, err := protocol.KeyTypeFromPublicKey(parsed)
+		if err != nil {
+			return "", fmt.Errorf("unsupported owner key type: %w", err)
+		}
+		switch typedKey := parsed.(type) {
+		case *ecdsa.PublicKey:
+			pubKey, err = protocol.NewPublicKey(keyType, typedKey, false)
+		case *rsa.PublicKey:
+			pubKey, err = protocol.NewPublicKey(keyType, typedKey, false)
+		default:
+			return "", fmt.Errorf("unsupported owner key type: %T", parsed)
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to encode owner key: %w", err)
+		}
+	}
+
+	// CBOR-encode the public key as [type, encoding, body]
+	pubKeyCBOR, err := cbor.Marshal(pubKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal public key: %w", err)
+	}
+
+	// Generate a self-signed device certificate using the manufacturer key.
+	// ExtendVoucher requires CertChain to not be nil — it uses the device
+	// cert's public key to select the hash algorithm.
+	devCertTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "fdo-test-device"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+	devCertDER, err := x509.CreateCertificate(rand.Reader, devCertTemplate, devCertTemplate, &mfgPriv.PublicKey, mfgPriv)
+	if err != nil {
+		return "", fmt.Errorf("failed to create device certificate: %w", err)
+	}
+	// CBOR-encode the certificate chain as an array of CBOR byte strings.
+	// Each certificate is DER-encoded, then wrapped in a CBOR byte string.
+	certChainCBOR, err := cbor.Marshal([][]byte{devCertDER})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal cert chain: %w", err)
 	}
 
 	// Create minimal voucher header structure
 	// VoucherHeader = [version, guid, rvinfo, deviceinfo, pubkey, cert_chain_hash]
-	// PublicKey = [type, encoding, body]
 	header := []interface{}{
-		uint16(101),                        // version
-		guid,                               // GUID
-		[]interface{}{},                    // RvInfo (empty array)
-		deviceInfo,                         // DeviceInfo
-		[]interface{}{1, 1, ownerKeyBytes}, // PublicKey (type, encoding, body)
-		nil,                                // CertChainHash (null)
+		uint16(101),               // version
+		guid,                      // GUID
+		[]interface{}{},           // RvInfo (empty array)
+		deviceInfo,                // DeviceInfo
+		cbor.RawBytes(pubKeyCBOR), // ManufacturerKey (properly encoded)
+		nil,                       // CertChainHash (null)
 	}
 
 	// Encode header to CBOR
@@ -82,11 +145,11 @@ func GenerateTestVoucherWithOwner(serial, model, ownerKeyFile string) (string, e
 	// Create minimal voucher structure
 	// Voucher = [version, header_bstr, hmac, cert_chain, entries]
 	voucher := []interface{}{
-		uint16(101),     // version
-		headerBytes,     // header (as byte string)
-		hmacValue,       // HMAC
-		nil,             // CertChain (null)
-		[]interface{}{}, // Entries (empty array)
+		uint16(101),                  // version
+		headerBytes,                  // header (as byte string)
+		hmacValue,                    // HMAC
+		cbor.RawBytes(certChainCBOR), // CertChain (device certificate)
+		[]interface{}{},              // Entries (empty array)
 	}
 
 	// Encode voucher to CBOR

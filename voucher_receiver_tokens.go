@@ -133,17 +133,18 @@ func (m *VoucherReceiverTokenManager) DeleteReceiverToken(ctx context.Context, t
 
 // ReceiverTokenInfo contains information about a token
 type ReceiverTokenInfo struct {
-	Token       string
-	Description string
-	ExpiresAt   *time.Time
-	CreatedAt   time.Time
-	IsExpired   bool
+	Token               string
+	Description         string
+	OwnerKeyFingerprint string
+	ExpiresAt           *time.Time
+	CreatedAt           time.Time
+	IsExpired           bool
 }
 
 // ListReceiverTokens returns all tokens with their information
 func (m *VoucherReceiverTokenManager) ListReceiverTokens(ctx context.Context) ([]ReceiverTokenInfo, error) {
 	rows, err := m.db.QueryContext(ctx, `
-		SELECT token, description, expires_at, created_at
+		SELECT token, description, owner_key_fingerprint, expires_at, created_at
 		FROM voucher_receiver_tokens
 		ORDER BY created_at DESC
 	`)
@@ -159,13 +160,17 @@ func (m *VoucherReceiverTokenManager) ListReceiverTokens(ctx context.Context) ([
 		var token ReceiverTokenInfo
 		var expiresAtMicro *int64
 		var createdAtMicro int64
+		var fingerprint sql.NullString
 
-		err := rows.Scan(&token.Token, &token.Description, &expiresAtMicro, &createdAtMicro)
+		err := rows.Scan(&token.Token, &token.Description, &fingerprint, &expiresAtMicro, &createdAtMicro)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan token row: %w", err)
 		}
 
 		token.CreatedAt = time.UnixMicro(createdAtMicro)
+		if fingerprint.Valid {
+			token.OwnerKeyFingerprint = fingerprint.String
+		}
 
 		if expiresAtMicro != nil {
 			expiresAt := time.UnixMicro(*expiresAtMicro)
@@ -224,6 +229,53 @@ func (m *VoucherReceiverTokenManager) IssueTokenForKey(callerKey protocol.Public
 	}
 
 	return token, expiresAt, nil
+}
+
+// ValidateTokenToIdentity validates a bearer token and returns the caller's identity.
+// For FDOKeyAuth-issued tokens (with owner_key_fingerprint), the fingerprint is the
+// key's FDO fingerprint. For global tokens, the identity label is "global".
+// For manually-created tokens without a fingerprint, the identity is derived from the
+// token's description.
+func (m *VoucherReceiverTokenManager) ValidateTokenToIdentity(ctx context.Context, token string) (*CallerIdentity, error) {
+	now := time.Now().UnixMicro()
+
+	var description sql.NullString
+	var fingerprint sql.NullString
+	err := m.db.QueryRowContext(ctx, `
+		SELECT description, owner_key_fingerprint
+		FROM voucher_receiver_tokens
+		WHERE token = ?
+		AND (expires_at IS NULL OR expires_at > ?)
+	`, token, now).Scan(&description, &fingerprint)
+
+	if err != nil {
+		return nil, fmt.Errorf("token not found or expired")
+	}
+
+	identity := &CallerIdentity{}
+
+	if fingerprint.Valid && fingerprint.String != "" {
+		// FDOKeyAuth-issued token: owner has a cryptographic key
+		identity.Fingerprint = fingerprint.String
+		identity.AuthMethod = AuthMethodFDOKeyAuth
+		identity.HasOwnerKey = true
+		if description.Valid {
+			identity.IdentityLabel = description.String
+		}
+	} else {
+		// Manually-created token: no owner key, identity derived from description
+		identity.AuthMethod = AuthMethodBearerToken
+		identity.HasOwnerKey = false
+		label := "token"
+		if description.Valid && description.String != "" {
+			label = description.String
+		}
+		identity.IdentityLabel = label
+		// Derive a fingerprint from the token value itself (SHA-256 of description)
+		identity.Fingerprint = FingerprintStringHex(label)
+	}
+
+	return identity, nil
 }
 
 // LogReceivedVoucher logs a received voucher to the audit table

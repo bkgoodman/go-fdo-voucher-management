@@ -90,6 +90,8 @@ run_scenario "scenario-8-enhanced-bmo-meta-url.sh" "8E: BMO Meta-URL Enhanced (g
 # New comprehensive FDOKeyAuth testing scenarios
 run_scenario "scenario-9-fdokeyauth-comprehensive.sh" "9: Comprehensive FDOKeyAuth (all flows + positive/negative)"
 run_scenario "scenario-10-token-expiration.sh" "10: FDOKeyAuth Token Lifecycle (expiration + refresh)"
+run_scenario "scenario-11-status-assign.sh" "11: Voucher Status & Assign API"
+run_scenario "scenario-12-visibility-walkthrough.sh" "12: Visibility & Inspection Walkthrough"
 
 # ============================================================
 # Final summary

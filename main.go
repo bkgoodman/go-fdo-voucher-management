@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -69,7 +70,7 @@ Usage:
 
 Subcommands:
   server              Start the HTTP server for receiving vouchers
-  vouchers            Manage vouchers (list, show, retry)
+  vouchers            Manage vouchers (list, show, retry, grants, custodians)
   tokens              Manage receiver authentication tokens
   partners            Manage trusted partner identities (add, list, show, remove, export)
   fdokeyauth          Perform FDOKeyAuth handshake only (authentication test)
@@ -81,8 +82,10 @@ Options for 'server':
   -debug             Enable debug logging
 
 Options for 'vouchers list':
-  -status string     Filter by status (pending, succeeded, failed)
+  -status string     Filter by status (pending, succeeded, failed, assigned)
   -guid string       Filter by GUID
+  -owner string      Filter by owner key fingerprint
+  -serial string     Filter by serial number
   -limit int         Maximum results (default: 50)
 
 Options for 'vouchers show':
@@ -90,6 +93,15 @@ Options for 'vouchers show':
 
 Options for 'vouchers retry':
   -guid string       GUID to retry (required)
+
+Options for 'vouchers grants':
+  -guid string       Filter by voucher GUID
+  -type string       Filter by identity type (owner_key, custodian, purchaser_token)
+  -limit int         Maximum results (default: 100)
+
+Options for 'vouchers custodians':
+  -fingerprint string  Show vouchers for a specific custodian
+  -limit int           Maximum results (default: 50)
 
 Options for 'tokens add':
   -token string      Token value (required)
@@ -237,17 +249,70 @@ func runServer() {
 		partnerStore,
 	)
 
+	// Build a unified token validator for the status and assign handlers.
+	// This checks both global config token and DB-backed tokens.
+	validateToken := func(token string) (*CallerIdentity, error) {
+		if config.VoucherReceiver.GlobalToken != "" && token == config.VoucherReceiver.GlobalToken {
+			return &CallerIdentity{
+				Fingerprint:   FingerprintStringHex("global"),
+				IdentityLabel: "global",
+				AuthMethod:    AuthMethodGlobalToken,
+				HasOwnerKey:   false,
+			}, nil
+		}
+		return tokenManager.ValidateTokenToIdentity(context.Background(), token)
+	}
+
+	// Create status handler
+	statusHandler := NewVoucherStatusHandler(transmitStore, validateToken)
+
+	// Create list handler (scoped to caller's access)
+	listHandler := NewVoucherListHandler(transmitStore, validateToken)
+
 	// Setup HTTP server
 	mux := http.NewServeMux()
 	if config.VoucherReceiver.Enabled {
 		mux.Handle(config.VoucherReceiver.Endpoint, receiverHandler)
 		slog.Info("voucher receiver endpoint registered", "endpoint", config.VoucherReceiver.Endpoint)
+
+		// Register status and list endpoints under the receiver root
+		root := config.VoucherReceiver.Endpoint
+		if root == "" {
+			root = "/api/v1/vouchers"
+		}
+		statusPath := root + "/status/"
+		mux.Handle(statusPath, statusHandler)
+		slog.Info("voucher status endpoint registered", "endpoint", statusPath)
+
+		listPath := root + "/list"
+		mux.Handle(listPath, listHandler)
+		slog.Info("voucher list endpoint registered", "endpoint", listPath)
 	}
 
 	// Setup DID minting and serving (must happen before pull service so owner key is available)
 	var ownerKey crypto.Signer
 	if config.DIDMinting.Enabled {
 		ownerKey = setupDIDMinting(config, mux, signingService)
+	}
+
+	// Register the assign handler now that ownerKey is available.
+	// The assign endpoint uses the Holder's signing key for voucher extension.
+	if config.VoucherReceiver.Enabled {
+		assignHandler := NewVoucherAssignHandler(
+			transmitStore,
+			fileStore,
+			signingService,
+			didResolver,
+			validateToken,
+			ownerKey,
+		)
+		root := config.VoucherReceiver.Endpoint
+		if root == "" {
+			root = "/api/v1/vouchers"
+		}
+		assignPath := root + "/assign"
+		mux.Handle(assignPath, assignHandler)
+		slog.Info("voucher assign endpoint registered", "endpoint", assignPath)
 	}
 
 	// Setup pull service (FDOKeyAuth + Pull API) — uses the same owner key as DID identity
@@ -307,7 +372,7 @@ func runServer() {
 
 func runVouchersCommand() {
 	if len(os.Args) < 3 {
-		fmt.Fprintf(os.Stderr, "Usage: fdo-voucher-manager vouchers [list|show|retry] [options]\n")
+		fmt.Fprintf(os.Stderr, "Usage: fdo-voucher-manager vouchers [list|show|assign|unassign|retry|grants|custodians] [options]\n")
 		os.Exit(1)
 	}
 
@@ -318,8 +383,16 @@ func runVouchersCommand() {
 		vouchersListCmd()
 	case "show":
 		vouchersShowCmd()
+	case "assign":
+		vouchersAssignCmd()
+	case "unassign":
+		vouchersUnassignCmd()
 	case "retry":
 		vouchersRetryCmd()
+	case "grants":
+		vouchersGrantsCmd()
+	case "custodians":
+		vouchersCustodiansCmd()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown vouchers command: %s\n", command)
 		os.Exit(1)
@@ -330,6 +403,8 @@ func vouchersListCmd() {
 	fs := flag.NewFlagSet("vouchers list", flag.ExitOnError)
 	status := fs.String("status", "", "Filter by status")
 	guid := fs.String("guid", "", "Filter by GUID")
+	owner := fs.String("owner", "", "Filter by owner key fingerprint")
+	serial := fs.String("serial", "", "Filter by serial number")
 	limit := fs.Int("limit", 50, "Maximum results")
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	fs.Parse(os.Args[3:])
@@ -347,8 +422,18 @@ func vouchersListCmd() {
 	}
 	defer db.Close()
 
+	ctx := context.Background()
 	store := NewVoucherTransmissionStore(db)
-	records, err := store.ListTransmissions(context.Background(), *status, *guid, *limit)
+
+	var records []VoucherTransmissionRecord
+	switch {
+	case *owner != "":
+		records, err = store.ListByOwner(ctx, *owner, *limit)
+	case *serial != "":
+		records, err = store.FetchBySerial(ctx, *serial)
+	default:
+		records, err = store.ListTransmissions(ctx, *status, *guid, *limit)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to list transmissions: %v\n", err)
 		os.Exit(1)
@@ -359,10 +444,22 @@ func vouchersListCmd() {
 		return
 	}
 
-	fmt.Printf("%-40s %-15s %-30s %-10s %-5s\n", "GUID", "Status", "Destination", "Attempts", "ID")
-	fmt.Println(string(make([]byte, 100)))
+	fmt.Printf("%-36s %-12s %-15s %-12s %-30s %s\n", "GUID", "Serial", "Status", "Assigned By", "Destination", "ID")
+	fmt.Println(strings.Repeat("-", 120))
 	for _, rec := range records {
-		fmt.Printf("%-40s %-15s %-30s %-10d %-5d\n", rec.VoucherGUID, rec.Status, rec.DestinationURL, rec.Attempts, rec.ID)
+		serial := rec.SerialNumber
+		if len(serial) > 12 {
+			serial = serial[:12]
+		}
+		assignedBy := rec.AssignedByFingerprint
+		if len(assignedBy) > 12 {
+			assignedBy = assignedBy[:12]
+		}
+		dest := rec.DestinationURL
+		if len(dest) > 30 {
+			dest = dest[:30]
+		}
+		fmt.Printf("%-36s %-12s %-15s %-12s %-30s %d\n", rec.VoucherGUID, serial, rec.Status, assignedBy, dest, rec.ID)
 	}
 }
 
@@ -397,23 +494,36 @@ func vouchersShowCmd() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("ID:                 %d\n", rec.ID)
-	fmt.Printf("GUID:               %s\n", rec.VoucherGUID)
-	fmt.Printf("Serial:             %s\n", rec.SerialNumber)
-	fmt.Printf("Model:              %s\n", rec.ModelNumber)
-	fmt.Printf("Status:             %s\n", rec.Status)
-	fmt.Printf("Destination:        %s\n", rec.DestinationURL)
-	fmt.Printf("Source:             %s\n", rec.DestinationSource)
-	fmt.Printf("Attempts:           %d\n", rec.Attempts)
-	fmt.Printf("Last Error:         %s\n", rec.LastError)
-	fmt.Printf("File Path:          %s\n", rec.FilePath)
-	fmt.Printf("Created:            %s\n", rec.CreatedAt.Format(time.RFC3339))
-	fmt.Printf("Updated:            %s\n", rec.UpdatedAt.Format(time.RFC3339))
+	fmt.Printf("ID:                    %d\n", rec.ID)
+	fmt.Printf("GUID:                  %s\n", rec.VoucherGUID)
+	fmt.Printf("Serial:                %s\n", rec.SerialNumber)
+	fmt.Printf("Model:                 %s\n", rec.ModelNumber)
+	fmt.Printf("Status:                %s\n", rec.Status)
+	fmt.Printf("Owner Key Fingerprint: %s\n", rec.OwnerKeyFingerprint)
+	fmt.Printf("Destination:           %s\n", rec.DestinationURL)
+	fmt.Printf("Source:                %s\n", rec.DestinationSource)
+	fmt.Printf("Attempts:              %d\n", rec.Attempts)
+	fmt.Printf("Last Error:            %s\n", rec.LastError)
+	fmt.Printf("File Path:             %s\n", rec.FilePath)
+	fmt.Printf("Created:               %s\n", rec.CreatedAt.Format(time.RFC3339))
+	fmt.Printf("Updated:               %s\n", rec.UpdatedAt.Format(time.RFC3339))
 	if rec.LastAttemptAt.Valid {
-		fmt.Printf("Last Attempt:       %s\n", rec.LastAttemptAt.Time.Format(time.RFC3339))
+		fmt.Printf("Last Attempt:          %s\n", rec.LastAttemptAt.Time.Format(time.RFC3339))
 	}
 	if rec.DeliveredAt.Valid {
-		fmt.Printf("Delivered:          %s\n", rec.DeliveredAt.Time.Format(time.RFC3339))
+		fmt.Printf("Delivered:             %s\n", rec.DeliveredAt.Time.Format(time.RFC3339))
+	}
+	if rec.AssignedAt.Valid {
+		fmt.Printf("Assigned At:           %s\n", rec.AssignedAt.Time.Format(time.RFC3339))
+	}
+	if rec.AssignedToFingerprint != "" {
+		fmt.Printf("Assigned To:           %s\n", rec.AssignedToFingerprint)
+	}
+	if rec.AssignedToDID != "" {
+		fmt.Printf("Assigned To DID:       %s\n", rec.AssignedToDID)
+	}
+	if rec.AssignedByFingerprint != "" {
+		fmt.Printf("Assigned By:           %s\n", rec.AssignedByFingerprint)
 	}
 }
 
@@ -457,6 +567,148 @@ func vouchersRetryCmd() {
 	}
 
 	fmt.Printf("Retry initiated for GUID %s\n", *guid)
+}
+
+func vouchersGrantsCmd() {
+	fs := flag.NewFlagSet("vouchers grants", flag.ExitOnError)
+	guid := fs.String("guid", "", "Filter by voucher GUID")
+	identityType := fs.String("type", "", "Filter by identity type (owner_key, custodian, purchaser_token)")
+	limit := fs.Int("limit", 100, "Maximum results")
+	configPath := fs.String("config", "config.yaml", "Path to config file")
+	fs.Parse(os.Args[3:])
+
+	config, err := LoadConfig(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	db, err := openDatabase(config.Database.Path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	store := NewVoucherTransmissionStore(db)
+	if err := store.Init(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to initialize store: %v\n", err)
+		os.Exit(1)
+	}
+
+	var grants []AccessGrant
+	if *guid != "" {
+		grants, err = store.ListAccessGrants(ctx, *guid)
+	} else {
+		grants, err = store.ListAllAccessGrants(ctx, *identityType, *limit)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to list grants: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(grants) == 0 {
+		fmt.Println("No access grants found")
+		return
+	}
+
+	fmt.Printf("%-36s %-12s %-16s %-16s %-12s %s\n", "Voucher GUID", "Serial", "Identity FP", "Type", "Access", "Granted By")
+	fmt.Println(strings.Repeat("-", 110))
+	for _, g := range grants {
+		fp := g.IdentityFingerprint
+		if len(fp) > 16 {
+			fp = fp[:16]
+		}
+		serial := g.SerialNumber
+		if len(serial) > 12 {
+			serial = serial[:12]
+		}
+		grantedBy := g.GrantedBy
+		if len(grantedBy) > 16 {
+			grantedBy = grantedBy[:16]
+		}
+		fmt.Printf("%-36s %-12s %-16s %-16s %-12s %s\n", g.VoucherGUID, serial, fp, g.IdentityType, g.AccessLevel, grantedBy)
+	}
+}
+
+func vouchersCustodiansCmd() {
+	fs := flag.NewFlagSet("vouchers custodians", flag.ExitOnError)
+	fingerprint := fs.String("fingerprint", "", "Show vouchers for a specific custodian fingerprint")
+	limit := fs.Int("limit", 50, "Maximum results")
+	configPath := fs.String("config", "config.yaml", "Path to config file")
+	fs.Parse(os.Args[3:])
+
+	config, err := LoadConfig(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	db, err := openDatabase(config.Database.Path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	store := NewVoucherTransmissionStore(db)
+	if err := store.Init(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to initialize store: %v\n", err)
+		os.Exit(1)
+	}
+
+	if *fingerprint != "" {
+		// Show vouchers for a specific custodian
+		records, err := store.ListByCustodian(ctx, *fingerprint, *limit)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to list vouchers for custodian: %v\n", err)
+			os.Exit(1)
+		}
+		if len(records) == 0 {
+			fmt.Printf("No vouchers found for custodian %s\n", *fingerprint)
+			return
+		}
+		fmt.Printf("Vouchers assigned by custodian: %s\n\n", *fingerprint)
+		fmt.Printf("%-36s %-12s %-15s %-30s %s\n", "GUID", "Serial", "Status", "Assigned To", "Assigned At")
+		fmt.Println(strings.Repeat("-", 110))
+		for _, rec := range records {
+			serial := rec.SerialNumber
+			if len(serial) > 12 {
+				serial = serial[:12]
+			}
+			assignedTo := rec.AssignedToFingerprint
+			if len(assignedTo) > 30 {
+				assignedTo = assignedTo[:30]
+			}
+			assignedAt := ""
+			if rec.AssignedAt.Valid {
+				assignedAt = rec.AssignedAt.Time.Format("2006-01-02 15:04")
+			}
+			fmt.Printf("%-36s %-12s %-15s %-30s %s\n", rec.VoucherGUID, serial, rec.Status, assignedTo, assignedAt)
+		}
+	} else {
+		// List all custodians with summary
+		summaries, err := store.ListCustodians(ctx, *limit)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to list custodians: %v\n", err)
+			os.Exit(1)
+		}
+		if len(summaries) == 0 {
+			fmt.Println("No custodians found")
+			return
+		}
+		fmt.Printf("%-40s %-10s %s\n", "Custodian Fingerprint", "Vouchers", "Serials")
+		fmt.Println(strings.Repeat("-", 90))
+		for _, s := range summaries {
+			serials := s.SerialList
+			if len(serials) > 40 {
+				serials = serials[:40] + "..."
+			}
+			fmt.Printf("%-40s %-10d %s\n", s.Fingerprint, s.VoucherCount, serials)
+		}
+	}
 }
 
 func runTokensCommand() {
@@ -545,14 +797,25 @@ func tokensListCmd() {
 		return
 	}
 
-	fmt.Printf("%-40s %-20s %-30s %-10s\n", "Token", "Description", "Created", "Expires")
-	fmt.Println(string(make([]byte, 100)))
+	fmt.Printf("%-25s %-20s %-16s %-12s %s\n", "Token", "Description", "Owner Key FP", "Created", "Expires")
+	fmt.Println(strings.Repeat("-", 100))
 	for _, t := range tokens {
 		expires := "never"
 		if t.ExpiresAt != nil {
 			expires = t.ExpiresAt.Format("2006-01-02")
 		}
-		fmt.Printf("%-40s %-20s %-30s %-10s\n", t.Token[:20]+"...", t.Description, t.CreatedAt.Format("2006-01-02"), expires)
+		tokenPreview := t.Token
+		if len(tokenPreview) > 20 {
+			tokenPreview = tokenPreview[:20] + "..."
+		}
+		fp := t.OwnerKeyFingerprint
+		if len(fp) > 16 {
+			fp = fp[:16]
+		}
+		if fp == "" {
+			fp = "(manual)"
+		}
+		fmt.Printf("%-25s %-20s %-16s %-12s %s\n", tokenPreview, t.Description, fp, t.CreatedAt.Format("2006-01-02"), expires)
 	}
 }
 
